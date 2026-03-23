@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mérida — Walking Tour</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=IM+Fell+English+SC&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --parchment: #f0edf6;
+    --ink: #1a0f2e;
+    --purple: #4a1a7a;
+    --gold: #a07820;
+    --faded: #6a5888;
+    --border: #a08ac0;
+    --green: #2a5a3a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #c4b8d8; font-family: 'Cormorant Garamond', Georgia, serif; color: var(--ink); }
+  .page {
+    max-width: 860px; margin: 0 auto; background: var(--parchment);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.88' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    min-height: 100vh; padding: 0 0 60px; box-shadow: 0 0 60px rgba(20,0,40,0.45);
+  }
+  .header {
+    text-align: center; padding: 44px 40px 32px; border-bottom: 2px solid var(--border);
+    background: linear-gradient(to bottom, #ddd0ee, var(--parchment)); position: relative;
+  }
+  .header::before, .header::after { content: '✦ ✦ ✦'; display: block; color: var(--gold); font-size: 13px; letter-spacing: 8px; margin: 6px 0; }
+  .city-label { font-family: 'IM Fell English SC', serif; font-size: 13px; letter-spacing: 5px; color: var(--faded); text-transform: uppercase; margin-bottom: 10px; }
+  h1 { font-family: 'Cinzel', serif; font-size: 42px; font-weight: 600; color: var(--purple); line-height: 1.1; margin-bottom: 8px; text-shadow: 1px 1px 0 rgba(255,255,255,0.5); }
+  .subtitle { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 18px; color: var(--faded); font-weight: 300; }
+  .meta { margin-top: 18px; display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; font-size: 13px; color: var(--faded); letter-spacing: 1px; text-transform: uppercase; font-family: 'IM Fell English SC', serif; }
+
+  .lang-toggle {
+    position: absolute; top: 20px; right: 20px;
+    display: flex; border: 1.5px solid var(--border); border-radius: 6px; overflow: hidden;
+    font-family: 'IM Fell English SC', serif; font-size: 13px; letter-spacing: 1px;
+  }
+  .lang-btn { padding: 6px 14px; cursor: pointer; background: transparent; border: none; color: var(--faded); transition: all 0.2s; font-family: inherit; font-size: inherit; letter-spacing: inherit; }
+  .lang-btn.active { background: var(--purple); color: #fff; }
+  .lang-btn:hover:not(.active) { background: rgba(74,26,122,0.1); }
+
+  #map { width: 100%; height: 360px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); filter: sepia(20%) hue-rotate(240deg) contrast(0.88) brightness(1.05); }
+
+  .ticket-box {
+    background: rgba(74,26,122,0.07); border: 1px solid var(--border);
+    margin: 0; padding: 16px 40px; display: flex; align-items: flex-start; gap: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .ticket-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+  .ticket-text { font-size: 15px; line-height: 1.7; color: var(--ink); }
+  .ticket-text strong { font-family: 'Cinzel', serif; font-size: 13px; color: var(--purple); letter-spacing: 1px; display: block; margin-bottom: 4px; text-transform: uppercase; }
+
+  .legend { display: flex; gap: 24px; padding: 14px 40px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.2); flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-family: 'IM Fell English SC', serif; letter-spacing: 1px; font-size: 12px; color: var(--faded); }
+  .legend-swatch { width: 14px; height: 14px; border-radius: 2px; flex-shrink: 0; }
+
+  .intro { padding: 32px 52px 24px; border-bottom: 1px solid var(--border); }
+  .intro p { font-size: 18px; line-height: 1.8; color: var(--ink); font-style: italic; font-weight: 300; text-align: center; }
+  .drop-cap::first-letter { float: left; font-family: 'Cinzel', serif; font-size: 58px; line-height: 0.8; padding: 6px 10px 0 0; color: var(--purple); font-weight: 600; }
+
+  .stops { padding: 0 40px; }
+  .stop { display: grid; grid-template-columns: 52px 1fr; gap: 0 24px; padding: 36px 0; border-bottom: 1px dashed var(--border); }
+  .stop:last-child { border-bottom: none; }
+  .stop-num { width: 52px; height: 52px; border-radius: 50%; background: var(--purple); color: #fff; font-family: 'Cinzel', serif; font-size: 20px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 10px rgba(74,26,122,0.4); margin-top: 4px; }
+  .stop-name { font-family: 'Cinzel', serif; font-size: 20px; font-weight: 600; color: var(--purple); display: block; line-height: 1.2; }
+  .stop-era { font-family: 'IM Fell English SC', serif; font-size: 12px; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; display: block; margin: 3px 0 12px; }
+  .stop-desc { font-size: 17px; line-height: 1.8; color: var(--ink); margin-bottom: 12px; }
+
+  .story-box { background: rgba(74,26,122,0.07); border-left: 3px solid var(--purple); padding: 12px 16px; margin-top: 10px; border-radius: 0 4px 4px 0; }
+  .story-label { font-family: 'IM Fell English SC', serif; font-size: 11px; letter-spacing: 2px; color: var(--purple); text-transform: uppercase; display: block; margin-bottom: 6px; }
+  .story-box p { font-size: 15.5px; line-height: 1.75; color: var(--faded); font-style: italic; }
+
+  .kids-box { background: rgba(42,90,58,0.07); border-left: 3px solid var(--green); padding: 12px 16px; margin-top: 10px; border-radius: 0 4px 4px 0; }
+  .kids-label { font-family: 'IM Fell English SC', serif; font-size: 11px; letter-spacing: 2px; color: var(--green); text-transform: uppercase; display: block; margin-bottom: 6px; }
+  .kids-box p { font-size: 15.5px; line-height: 1.75; color: #2a4a38; font-style: italic; }
+
+  .connector { display: flex; align-items: center; gap: 10px; padding: 8px 0 2px; margin-left: 76px; font-family: 'IM Fell English SC', serif; font-size: 12px; letter-spacing: 1.5px; color: var(--faded); }
+  .connector::before { content: '↓'; font-size: 16px; color: var(--border); }
+
+  .optional-box { background: rgba(160,120,32,0.08); border: 1px dashed var(--gold); padding: 14px 18px; margin: 8px 0 0 76px; border-radius: 4px; }
+  .optional-box p { font-size: 15px; line-height: 1.7; color: #6a5020; font-style: italic; }
+  .optional-box strong { font-family: 'IM Fell English SC', serif; letter-spacing: 1px; color: var(--gold); font-style: normal; }
+
+  .footer { text-align: center; padding: 24px 40px; border-top: 2px solid var(--border); color: var(--faded); font-family: 'IM Fell English SC', serif; font-size: 12px; letter-spacing: 2px; }
+  .ornament { color: var(--gold); font-size: 18px; display: block; margin: 4px 0 8px; }
+
+  @media print {
+    body { background: white; }
+    .page { box-shadow: none; max-width: 100%; }
+    #map { height: 280px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .stop { page-break-inside: avoid; }
+    .story-box, .kids-box, .stop-num, .ticket-box { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .lang-toggle { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="header">
+  <div class="lang-toggle">
+    <button class="lang-btn active" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" onclick="setLang('ru')">RU</button>
+  </div>
+  <div class="city-label" data-i18n="city_label"></div>
+  <h1>Mérida</h1>
+  <p class="subtitle" data-i18n="subtitle"></p>
+  <div class="meta">
+    <span data-i18n="meta_time"></span>
+    <span data-i18n="meta_stops"></span>
+    <span data-i18n="meta_dist"></span>
+    <span data-i18n="meta_family"></span>
+  </div>
+</header>
+
+<div id="map"></div>
+
+<div class="ticket-box">
+  <div class="ticket-icon">🎟</div>
+  <div class="ticket-text">
+    <strong data-i18n="ticket_title"></strong>
+    <span data-i18n="ticket_text"></span>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-swatch" style="background:rgba(74,26,122,0.15);border-left:3px solid #4a1a7a;"></div>
+    <span data-i18n="legend_story"></span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch" style="background:rgba(42,90,58,0.12);border-left:3px solid #2a5a3a;"></div>
+    <span data-i18n="legend_kids"></span>
+  </div>
+</div>
+
+<section class="intro">
+  <p class="drop-cap" data-i18n="intro"></p>
+</section>
+
+<section class="stops" id="stops-container"></section>
+
+<footer class="footer">
+  <span class="ornament">❧</span>
+  <span data-i18n="footer_title"></span>
+  <br><br>
+  <em style="font-family:'Cormorant Garamond';font-style:italic;font-size:13px;letter-spacing:0;color:var(--faded);" data-i18n="footer_notes"></em>
+</footer>
+
+</div>
+
+<script>
+const T = {
+  en: {
+    city_label: "Extremadura, Spain · UNESCO World Heritage · Capital of Roman Lusitania",
+    subtitle: "A Half-Day Tour of Emerita Augusta — Rome's Gateway to the Atlantic",
+    meta_time: "⏱ ~4 hours",
+    meta_stops: "📍 8 Stops",
+    meta_dist: "🥾 ~2.5 km",
+    meta_family: "👨‍👧 Family Friendly",
+    ticket_title: "Combined Ticket — Buy First",
+    ticket_text: "A single combined ticket (€17 per adult, children free under 12) covers the Theatre, Amphitheatre, Casa del Mitreo, Columbarios, Alcazaba, and Temple of Diana. Buy it at the Museum or the Theatre entrance. The Museum of Roman Art is free on Saturdays and for EU citizens under 18.",
+    legend_story: "Historical Story",
+    legend_kids: "⚔️ For the Kids",
+    intro: "Mérida is Rome's most complete surviving provincial capital anywhere in the world. Founded in 25 BC as Emerita Augusta — retirement colony for veterans of the Cantabrian Wars — it became the capital of the vast province of Lusitania, which stretched from the Tagus river to the Atlantic coast of what is now Portugal. What remains here is staggering: a theatre, an amphitheatre, a circus, two Roman bridges, a triumphal arch, a temple, an aqueduct, a dam. No city outside Italy puts you closer to how the Roman Empire actually functioned.",
+    footer_title: "Mérida (Emerita Augusta) · UNESCO World Heritage Site 1993",
+    footer_notes: "Combined ticket €17 (Theatre + Amphitheatre + Casa del Mitreo + Columbarios + Alcazaba + Temple of Diana). Museum of Roman Art free Saturdays. All sites open from 9:00–9:30 am. Most close for lunch 14:00–16:00 — plan accordingly. Merida is very hot in summer: start early, carry water, use the museum's air-conditioning strategically. Parking near the theatre on Avenida Margarita Xirgu is usually available.",
+    stops: [
+      {
+        name: "Museo Nacional de Arte Romano",
+        era: "Opened 1986 · Architect Rafael Moneo · Start Here",
+        desc: "Begin your day here before touching a single ruin. The National Museum of Roman Art is one of the finest Roman archaeology museums in Europe — a stunning building by Rafael Moneo whose soaring brick nave and series of Roman arches deliberately echo the monuments outside. Its collection spans mosaics of extraordinary scale, marble statuary, bronze surgical instruments, jewellery, coins, funerary stelae, and a scale model of Emerita Augusta at its 1st-century peak that will orient everything you are about to see. Crucially, the museum is built directly over excavated Roman ruins — a residential quarter and cryptoporticus are visible through glass floors in the basement.",
+        story_label: "Why Mérida?",
+        story: "When Augustus founded Emerita Augusta in 25 BC, the choice of location was strategic on every level: the confluence of the Guadiana and Albarregas rivers provided water and a natural defensive position; the Via de la Plata — the silver road north — passed directly through; and the site was far enough from Rome to be autonomous but close enough to be controlled. The veterans he settled here had fought the brutal Cantabrian Wars in the north of Spain — the last campaign to fully subdue the Iberian Peninsula. Mérida was their pension, their reward, and their new Rome.",
+        kids_label: "⚔️ For the Kids",
+        kids: "In the museum basement, you can look through glass floors at the ruins of real Roman houses beneath your feet — walls, floors, and drainage channels still in place. The Romans who lived here 2,000 years ago walked on those same stones. Also look for the surgical instruments display: Roman doctors used bronze forceps, scalpels, and bone saws that look almost identical to modern surgical tools. Medicine in 100 AD was more advanced than most people expect.",
+        connector: "~2 min · the theatre entrance is directly behind the museum"
+      },
+      {
+        name: "Teatro Romano",
+        era: "Built 16–15 BC · Capacity 6,000 · Still in Use Today",
+        desc: "One of the best-preserved Roman theatres in the world, and genuinely one of the most beautiful ancient buildings in Europe. Commissioned by Marcus Agrippa — Augustus's general and son-in-law — and built in 16–15 BC, it held 6,000 spectators in tiered seating cut into a natural hillside. The two-storey scaenae frons — the stage backdrop — is the most striking element: a forest of marble columns, niches, and statuary rebuilt to its full 17-metre height, forming a backdrop so theatrical it looks designed by a film director. Every July and August, the International Classical Theatre Festival performs Greek and Roman drama here on an active stage in front of real Roman columns. It has been running since 1933.",
+        story_label: "Lost for 1,500 Years",
+        story: "The theatre was buried progressively after the fall of the Western Roman Empire, covered by centuries of silt and construction. By the medieval period it had entirely disappeared from view — the city simply grew over it. Systematic excavations began in 1910 under José Ramón Mélida, and the full scaenae frons was only revealed and reconstructed across several decades of 20th-century work. The marble columns you see are real Roman originals, re-erected in their original positions. What looks like a complete monument was, a century ago, a formless mound under a neighbourhood street.",
+        kids_label: "⚔️ For the Kids",
+        kids: "This theatre held 6,000 people and had no roof. Every sound — every word spoken on stage — was engineered by the shape of the stone seating to reach the very back row without a microphone. Clap your hands from different points in the seating and listen to how the sound travels. The Romans understood acoustics so well that modern concert halls still use the same basic geometry. Sit in the back row and have someone speak at the stage in a normal voice. You will hear them.",
+        connector: "~2 min · the amphitheatre is directly adjacent through a connecting gate"
+      },
+      {
+        name: "Anfiteatro Romano",
+        era: "Built 8 BC · Capacity 15,000 · Gladiators & Wild Animals",
+        desc: "Directly beside the theatre but utterly different in atmosphere: where the theatre is elegant and cultural, the amphitheatre is visceral and brutal. Built in 8 BC and capable of holding 15,000 spectators, this was where Emerita Augusta came to watch gladiatorial combat, animal hunts, and public executions. The elliptical arena floor, the subterranean chambers where animals and fighters were held before combat, the drainage channels for blood and water — all are visible and well-explained. Stand in the centre of the arena floor and look up at the tiered seating rising around you. The scale is overwhelming even in ruin.",
+        story_label: "The Last Gladiators",
+        story: "Gladiatorial games were officially banned by Emperor Honorius in 399 AD, though evidence suggests they continued unofficially for decades afterward. The games in Mérida would have featured both local fighters — some of them slaves, some of them free men who chose the profession for money and fame — and professional troupes that travelled the circuit of provincial capitals. A successful gladiator could earn significant wealth and celebrity. Several gladiatorial tombstones found in Mérida list their victories and fighting styles, suggesting local fans followed individual careers the way we follow athletes today.",
+        kids_label: "⚔️ For the Kids",
+        kids: "Walk down into the underground tunnels beneath the arena floor — this is where the gladiators and animals waited before being raised into the arena. Lions, bears, and ostriches were brought here from across the Roman Empire for the hunts. The trap doors in the arena floor were lifted by ropes and counterweights. Imagine standing in this dark tunnel listening to 15,000 people roaring above you, waiting for the door to open. That is what a gladiator heard every time.",
+        connector: "~10 min walk south along Calle Oviedo"
+      },
+      {
+        name: "Casa del Mitreo & Los Columbarios",
+        era: "1st–2nd Century AD · Largest Roman Villa in Mérida · Cosmic Mosaic",
+        desc: "A short walk south of the amphitheatre, this excavated Roman villa is one of the most remarkable domestic sites in Roman Spain. Spread across three terraced levels with three separate peristyle gardens, it gives a vivid sense of how Mérida's wealthy citizens actually lived — not in ruins, but in spacious, frescoed, mosaic-floored houses built around light-filled courtyards. The centrepiece is the Cosmological Mosaic: a vast, intricate floor panel depicting the Roman conception of the universe — the cosmos, the seasons, the rivers, the winds — in extraordinary surviving colour and detail. It is one of the great Roman mosaics in existence. A short walk further brings you to Los Columbarios: a pair of funerary monuments where cremation urns were stacked in niches like a wall of post-boxes — the Roman burial system for the non-elite.",
+        story_label: "Who Lived Here?",
+        story: "The house takes its name from the Mithraic cult — a mystery religion popular among Roman soldiers and merchants, dedicated to the god Mithras. Evidence of a Mithraeum (underground cult chamber) was found in or near the house, suggesting the owner was an initiate. Mithraism was one of Christianity's main rivals in the Roman Empire: it involved baptism, a sacred meal, and ranks of initiation. Several Roman emperors were devotees. The religion vanished almost completely after Constantine legalised Christianity in 313 AD — but its rituals are so similar to Christian ones that historians have argued about the relationship ever since.",
+        kids_label: "⚔️ For the Kids",
+        kids: "The giant mosaic on the floor shows the Roman idea of what the universe looked like — all the planets, winds, rivers, and seasons arranged as a single picture. It was made from thousands of tiny coloured tiles called tesserae, each roughly the size of your fingernail, placed one by one into wet cement. A mosaic this size would have taken a team of craftsmen months to complete. Some of the colours are still as vivid as the day they were laid — 1,900 years ago.",
+        connector: "~12 min walk north through the old town centre"
+      },
+      {
+        name: "Templo de Diana",
+        era: "1st Century AD · Best-Preserved Roman Temple on the Iberian Peninsula",
+        desc: "Standing in the middle of the modern city, surrounded by ordinary streets and apartment blocks, the Temple of Diana is one of the most startling sights in all of Spain: a near-complete Roman temple, its granite columns and entablature still rising to their full height, inserted into the fabric of a medieval palace that was built directly around and over it in the 16th century. It was this act of architectural recycling that saved it — the Countess of Corbos incorporated the Roman structure into her palace, and the walls of her residence protected the columns from quarrying. The temple almost certainly was not dedicated to Diana — that identification is a Renaissance-era mistake. It was almost certainly the cult temple of the Imperial family, the Augusteum.",
+        story_label: "The Palace That Saved a Temple",
+        story: "In the 16th century, a nobleman named Francisco de Pizarro — no relation to the conquistador — built a Renaissance palace using the Roman temple as its structural core. Rather than demolishing the columns, he built his walls between them and his floors at Roman column height. For three centuries the temple was invisible — part of a private palace, its columns embedded in plaster and whitewash. Systematic excavation and restoration in the 20th century stripped away the medieval additions and revealed the Roman structure beneath. The Renaissance palace has now gone; the Roman temple it inadvertently preserved has outlasted it by two thousand years.",
+        kids_label: "⚔️ For the Kids",
+        kids: "This temple was built when Augustus Caesar — the first Roman Emperor — was still alive. The columns are made of granite and each one is a single piece of stone, cut and transported from a quarry outside the city before cranes existed. Roman engineers moved these columns using ropes, wooden rollers, and hundreds of workers. Walk around the base of one column and look at how it sits on its stone plinth. Each column weighs several tonnes and has stood in this exact spot for 2,000 years.",
+        connector: "~3 min walk north-west"
+      },
+      {
+        name: "Arco de Trajano",
+        era: "1st Century AD · 15 Metres High · Gateway to the Sacred Precinct",
+        desc: "A single massive granite arch standing in the middle of a modern street — dwarfing the surrounding buildings, ignored by locals on their way to work, extraordinary to anyone who looks up. Despite its popular name, the Arch of Trajan almost certainly predates Emperor Trajan: it was built in the 1st century AD, probably in the Augustan period, and served as a monumental gateway to the temenos — the sacred precinct surrounding the Temple of Diana. It is 15 metres high and built without mortar: the granite blocks are held in place entirely by gravity and the precision of their fitting. Cars park beneath it. Laundry occasionally hangs nearby. The Romans who built it would have found this simultaneously undignified and completely in keeping with how cities work.",
+        story_label: "The Wrong Name",
+        story: "The arch has been called the Arch of Trajan since at least the Renaissance, when humanist scholars attributed every large Roman monument they couldn't explain to the most famous emperor they could think of. Trajan was indeed from nearby Italica in modern Andalusia — the first provincial Roman emperor — so the attribution seemed plausible. Modern archaeology dates the construction a century earlier. The name has stuck anyway. Mérida is full of monuments misidentified by enthusiastic Renaissance scholars who were right about the Romans but wrong about the details.",
+        kids_label: "⚔️ For the Kids",
+        kids: "Look at the arch and then look at the buildings around it. The arch is taller than the four-storey apartment block beside it. It was built without any cement or mortar — every stone block locks against its neighbours through precision cutting alone. The Romans understood that a perfectly cut arch transfers weight outward to its sides, not downward through its centre. Knock out the keystone at the top and the whole arch falls. That keystone has been in place for 2,000 years without anyone touching it.",
+        connector: "~8 min walk south-west toward the river"
+      },
+      {
+        name: "Alcazaba Árabe",
+        era: "Built 835 AD · Arab Fortress · Built with Roman Stones",
+        desc: "The Arab Alcazaba of Mérida is a Moorish fortress built in 835 AD by Abd al-Rahman II — but almost everything it is built from is Roman. The walls, towers, and foundations are assembled from granite blocks, carved column drums, and architectural fragments stripped from Roman buildings across the city. Walking its walls, you can identify Roman inscriptions repurposed as plain building stones, column capitals used as paving, and sarcophagus lids recut as window sills. This is not vandalism — it is how cities survive. Inside the fortress, descend to the aljibe: a Roman-era cistern of Arab construction, with goldfish in the clear water, horseshoe arches above, and the quiet of a space that has been cool and still for twelve centuries.",
+        story_label: "The Revolt of 868",
+        story: "Mérida was one of the most rebellious cities in Moorish Spain. The Alcazaba was built specifically to control it after a prolonged uprising against the Emirate of Córdoba — the local population, a mix of Hispano-Roman Christians and converts, repeatedly refused to accept central Arab authority. Abd al-Rahman II built the fortress directly over the Roman bridge approach, so that any traffic entering or leaving the city could be controlled militarily. The message was architectural: this is occupied territory, and we are watching. The fortress worked. The revolts stopped.",
+        kids_label: "⚔️ For the Kids",
+        kids: "The walls of this Arab fortress are made almost entirely of stolen Roman stones. Look closely and you'll find carved Roman letters, bits of column, and even parts of old Roman gravestones used as plain building blocks. The Arabs who built this in 835 AD were essentially recycling a demolished city. Also: go down to the cistern at the bottom of the fortress. It has goldfish in it. A 1,200-year-old underground cistern with living fish is a very specific thing that you will not forget.",
+        connector: "~3 min · the Roman bridge begins directly at the Alcazaba's western gate"
+      },
+      {
+        name: "Puente Romano",
+        era: "1st Century BC · 792 Metres · Longest Surviving Roman Bridge in the World",
+        desc: "The Roman bridge of Mérida across the Guadiana river is the longest surviving Roman bridge in the world: 792 metres, 60 arches, built in the 1st century BC and still in daily use as a pedestrian crossing. Fifteen of its original arches survive unaltered; the remainder were rebuilt after flood damage over the centuries. Walk its full length. The views back toward the city — the Alcazaba above the riverbank, the modern Lusitania suspension bridge beyond, the cathedral tower — are the defining image of Mérida. On the far bank, turn and photograph the bridge with the city rising behind it. Then walk back. This bridge has been making the same crossing possible for 2,100 years.",
+        story_label: "The Bridge that Defined a Province",
+        story: "The Via de la Plata — the great Roman road running the length of western Iberia from Cádiz to Astorga — crossed the Guadiana here. This bridge was therefore not just a local convenience but a strategic artery of the entire Roman Empire's western frontier. Armies, tax shipments, imperial dispatches, and the produce of a continent crossed these stones. In the medieval period it remained the only permanent crossing of the Guadiana for hundreds of kilometres. Every town in western Spain and Portugal that grew on the Via de la Plata owes something to the decision, made two thousand years ago, to build a bridge at this exact point.",
+        kids_label: "⚔️ For the Kids",
+        kids: "This bridge is 792 metres long — nearly eight football pitches end to end. It was built without any machinery: just ropes, wooden scaffolding, stone blocks, and tens of thousands of hours of human labour. Roman legionary soldiers were used as construction workers during peacetime — an army with nothing to fight was put to work building roads, bridges, and aqueducts. The legionaries who built this bridge were the same soldiers who had just finished conquering the north of Spain. Walk to the middle and look down at the river. The water below you has been flowing under Roman arches since before Jesus was born.",
+        connector: null
+      }
+    ],
+    optional_title: "⏱ Optional Extra — Circo Romano",
+    optional_text: "If time allows before lunch, the Roman Circus is a 15-minute walk north-east (Avenida Juan Carlos I). At 440 metres long and holding 30,000 spectators, it was one of the largest in the Roman Empire — Ben-Hur territory. Most of it is buried under the modern city, but the excavated starting gates (carceres) and a section of the track are visible and well-presented. Covered by the combined ticket."
+  },
+
+  ru: {
+    city_label: "Эстремадура, Испания · Объект ЮНЕСКО · Столица римской Лузитании",
+    subtitle: "Полдня в Эмерита Августа — римских воротах к Атлантике",
+    meta_time: "⏱ ~4 часа",
+    meta_stops: "📍 8 остановок",
+    meta_dist: "🥾 ~2,5 км",
+    meta_family: "👨‍👧 Для всей семьи",
+    ticket_title: "Единый билет — купите сначала",
+    ticket_text: "Единый комплексный билет (€17 на взрослого, дети до 12 лет бесплатно) включает: Театр, Амфитеатр, Дом Митры, Колумбарии, Алькасабу и Храм Дианы. Продаётся в музее или у входа в театр. Музей римского искусства бесплатен по субботам и для граждан ЕС до 18 лет.",
+    legend_story: "Историческая справка",
+    legend_kids: "⚔️ Детям",
+    intro: "Мерида — самая полно сохранившаяся провинциальная столица Рима в мире. Основанная в 25 г. до н.э. как Эмерита Августа — колония для ветеранов Кантабрийских войн — она стала столицей огромной провинции Лузитания, простиравшейся от реки Тахо до атлантического побережья нынешней Португалии. То, что здесь сохранилось, поражает: театр, амфитеатр, цирк, два римских моста, триумфальная арка, храм, акведук, плотина. Нигде за пределами Италии не ощущаешь так остро, как реально работала Римская империя.",
+    footer_title: "Мерида (Эмерита Августа) · объект Всемирного наследия ЮНЕСКО с 1993 года",
+    footer_notes: "Единый билет €17 (Театр + Амфитеатр + Дом Митры + Колумбарии + Алькасаба + Храм Дианы). Музей римского искусства — бесплатно по субботам. Все объекты открываются с 9:00–9:30. Большинство закрыты на обед с 14:00 до 16:00 — учитывайте это при планировании. Мерида летом очень жаркая: начинайте пораньше, берите воду, используйте кондиционер в музее стратегически. Парковка у театра на авениде Маргарита Хиргу обычно доступна.",
+    stops: [
+      {
+        name: "Национальный музей римского искусства",
+        era: "Открыт в 1986 году · Архитектор Рафаэль Моне · Начните здесь",
+        desc: "Начните день именно здесь, прежде чем прикоснуться к любым руинам. Национальный музей римского искусства — один из лучших музеев римской археологии в Европе: здание Рафаэля Моне с высоким кирпичным нефом и чередой римских арок намеренно отсылает к монументам снаружи. Коллекция охватывает мозаики огромных размеров, мраморную скульптуру, бронзовые хирургические инструменты, украшения, монеты, надгробные стелы и масштабную модель Эмерита Августа в расцвете I века — она поможет осмыслить всё, что вы вскоре увидите. Важная деталь: музей построен прямо над раскопанными римскими руинами — жилой квартал и криптопортик просматриваются через стеклянный пол подвала.",
+        story_label: "Почему Мерида?",
+        story: "Когда Август основал Эмерита Августа в 25 г. до н.э., выбор места был стратегически выверен на всех уровнях: слияние рек Гвадиана и Альбаррегас давало воду и естественное оборонительное положение; Серебряный путь на север проходил прямо через город; расстояние от Рима было достаточным для самостоятельности, но позволяло сохранять контроль. Расселённые здесь ветераны прошли жестокие Кантабрийские войны на севере Испании — последнюю кампанию по полному покорению Иберийского полуострова. Мерида была их пенсией, наградой и новым Римом.",
+        kids_label: "⚔️ Детям",
+        kids: "В подвале музея через стеклянный пол видны руины настоящих римских домов: стены, полы, дренажные каналы — всё на своих местах. Римляне, жившие здесь 2000 лет назад, ходили по тем же камням. Обратите внимание на витрину с хирургическими инструментами: римские врачи пользовались бронзовыми пинцетами, скальпелями и костными пилами, практически неотличимыми от современных. Медицина 100 года н.э. была куда более развита, чем принято думать.",
+        connector: "~2 минуты · вход в театр прямо позади музея"
+      },
+      {
+        name: "Римский театр",
+        era: "Построен в 16–15 гг. до н.э. · Вместимость 6000 · До сих пор используется",
+        desc: "Один из лучше всего сохранившихся римских театров в мире и, пожалуй, одно из красивейших античных сооружений Европы. Заказан Марком Агриппой — полководцем и зятем Августа — и построен в 16–15 гг. до н.э. Он вмещал 6000 зрителей в ярусных сиденьях, врезанных в естественный склон холма. Двухъярусная сценическая стена — сценэ фронс — самое впечатляющее: лес мраморных колонн, ниш и статуй, восстановленных до первоначальной высоты 17 метров. Каждое лето с июля по август здесь проводится Международный классический театральный фестиваль — греческие и римские пьесы на живой сцене перед настоящими римскими колоннами. Фестиваль существует с 1933 года.",
+        story_label: "Полторы тысячи лет под землёй",
+        story: "После падения Западной Римской империи театр постепенно засыпало — слоями ила и новой застройки. К Средневековью он полностью исчез из виду: город просто вырос над ним. Систематические раскопки начались в 1910 году под руководством Хосе Рамона Мелиды, а полная реконструкция сценэ фронс заняла несколько десятилетий XX века. Мраморные колонны, которые вы видите, — подлинные римские оригиналы, установленные на свои исторические места. То, что сегодня выглядит как цельный памятник, сто лет назад было бесформенным холмом под городской улицей.",
+        kids_label: "⚔️ Детям",
+        kids: "Этот театр вмещал 6000 человек и не имел крыши. Каждое слово, произнесённое на сцене, благодаря форме каменных сидений достигало последнего ряда без микрофона. Хлопните в ладоши из разных точек зала и прислушайтесь к тому, как распространяется звук. Акустика, которую придумали римляне, до сих пор используется при строительстве концертных залов. Сядьте на последний ряд и попросите кого-нибудь что-нибудь сказать со сцены обычным голосом. Вы услышите.",
+        connector: "~2 минуты · амфитеатр прямо рядом, через соединительные ворота"
+      },
+      {
+        name: "Римский амфитеатр",
+        era: "Построен в 8 г. до н.э. · Вместимость 15 000 · Гладиаторы и дикие звери",
+        desc: "Прямо рядом с театром, но абсолютно иной по атмосфере: там изящество и культура, здесь — что-то более первобытное. Построен в 8 г. до н.э. и вмещал 15 000 зрителей — именно здесь Эмерита Августа собиралась смотреть гладиаторские бои, охоты на зверей и публичные казни. Эллиптическая арена, подземные камеры, где перед боем содержались животные и бойцы, дренажные каналы для крови и воды — всё это хорошо видно и подробно описано. Встаньте в центре арены и посмотрите вверх на ярусы сидений, поднимающихся вокруг. Масштаб подавляет даже в виде руин.",
+        story_label: "Последние гладиаторы",
+        story: "Гладиаторские игры официально запретил император Гонорий в 399 году н.э., хотя есть свидетельства, что неофициально они продолжались ещё несколько десятилетий. В Мериде выступали и местные бойцы — часть из них рабы, часть свободные люди, выбравшие этот путь ради денег и славы, — и профессиональные труппы, гастролировавшие по провинциальным столицам. Удачливый гладиатор мог заработать серьёзное состояние и стать знаменитостью. Несколько надгробий гладиаторов, найденных в Мериде, фиксируют их победы и стили боя — похоже, у местных болельщиков были свои любимцы, как у современных спортивных фанатов.",
+        kids_label: "⚔️ Детям",
+        kids: "Спуститесь в подземные тоннели под ареной — здесь ждали своего часа гладиаторы и звери. Сюда привозили львов, медведей и страусов со всей Римской империи. Люки в полу арены поднимались с помощью верёвок и противовесов. Представьте: вы стоите в этом тёмном тоннеле, слышите рёв 15 000 человек над головой и ждёте, когда откроется дверь. Именно это слышал гладиатор каждый раз перед боем.",
+        connector: "~10 минут на юг по улице Калье Овьедо"
+      },
+      {
+        name: "Дом Митры и Колумбарии",
+        era: "I–II века н.э. · Крупнейшая вилла Мериды · Космологическая мозаика",
+        desc: "В нескольких минутах ходьбы к югу от амфитеатра — одна из самых замечательных усадеб в римской Испании. Раскинувшись на трёх террасных уровнях с тремя отдельными перистильными садами, она даёт живое представление о том, как жили состоятельные горожане Мериды: не в руинах, а в просторных домах с фресками, мозаичными полами и светлыми дворами. Главное сокровище — Космологическая мозаика: огромное панно на полу с изображением римской картины мира — космос, времена года, реки, ветра — в изумительно сохранившихся красках. Это одна из великих римских мозаик. Чуть дальше — Колумбарии: пара погребальных сооружений, где урны с прахом стояли в нишах, как в стене почтовых ящиков — римская система захоронения для людей незнатных.",
+        story_label: "Кто здесь жил?",
+        story: "Название дома происходит от культа Митры — мистической религии, популярной среди римских солдат и торговцев, посвящённой богу Митре. В доме или рядом с ним найдены следы митреума — подземного культового помещения. Митраизм был одним из главных соперников христианства в Римской империи: он включал крещение, священную трапезу и иерархию посвящений. Несколько императоров были его адептами. После того как Константин легализовал христианство в 313 году н.э., митраизм исчез почти полностью — но его ритуалы так похожи на христианские, что историки до сих пор спорят об их соотношении.",
+        kids_label: "⚔️ Детям",
+        kids: "Огромная мозаика на полу — это римское представление о том, как устроена вселенная: все планеты, ветры, реки и времена года в одной картине. Она сложена из тысяч крошечных цветных плиток — тессер, каждая размером примерно с ноготь — укладывались одна за одной в свежий цемент. Мозаика такого размера у команды мастеров заняла бы несколько месяцев. Некоторые цвета по-прежнему такие же яркие, какими были в день укладки — 1900 лет назад.",
+        connector: "~12 минут на север через центр старого города"
+      },
+      {
+        name: "Храм Дианы",
+        era: "I век н.э. · Лучше всего сохранившийся римский храм Иберийского полуострова",
+        desc: "Посреди современного города, окружённый обычными улицами и жилыми домами, храм Дианы — одно из самых поразительных зрелищ Испании: почти целый римский храм, гранитные колонны и антаблемент которого до сих пор стоят во весь свой рост — вписанные в ткань средневекового дворца, возведённого прямо вокруг них в XVI веке. Именно этот акт архитектурной переработки его и спас: графиня де Корбос включила римские конструкции в своё поместье, и его стены защитили колонны от разборки. Храм почти наверняка был посвящён не Диане — это ошибка эпохи Ренессанса. Скорее всего, это был Августей — культовый храм императорской семьи.",
+        story_label: "Дворец, спасший храм",
+        story: "В XVI веке некий дворянин по имени Франсиско де Писарро — однофамилец конкистадора — построил ренессансный дворец, используя римский храм как несущий каркас. Вместо того чтобы сносить колонны, он возвёл стены между ними, а полы — на уровне высоты колонн. Три века храм был невидим — частью частного дворца, его колонны замурованы в штукатурку и побелку. Раскопки и реставрация XX века сняли средневековые наслоения и обнажили римскую конструкцию под ними. Ренессансный дворец исчез; римский храм, который он случайно сохранил, пережил его на две тысячи лет.",
+        kids_label: "⚔️ Детям",
+        kids: "Этот храм построен при жизни Августа Цезаря — первого римского императора. Колонны выполнены из гранита, и каждая из них — цельный кусок камня, вырезанный и привезённый из каменоломни за городом — до изобретения кранов. Римские инженеры перемещали эти колонны с помощью верёвок, деревянных катков и сотен рабочих. Обойдите вокруг основания одной колонны и посмотрите, как она стоит на своём каменном постаменте. Каждая весит несколько тонн и простоит здесь ровно 2000 лет.",
+        connector: "~3 минуты на северо-запад"
+      },
+      {
+        name: "Арка Траяна",
+        era: "I век н.э. · Высота 15 метров · Ворота в священный квартал",
+        desc: "Огромная гранитная арка посреди современной улицы — нависает над окружающими зданиями, незамечаемая местными по дороге на работу, поразительная для тех, кто поднимает глаза. Несмотря на популярное название, Арка Траяна почти наверняка построена раньше императора Траяна: датируется I веком н.э., вероятно эпохой Августа, и служила монументальными воротами в теменос — священный участок вокруг Храма Дианы. Высота — 15 метров, строительный материал — гранит, без единого грамма раствора: блоки держатся исключительно силой тяжести и точностью подгонки. Под ней паркуются автомобили. Рядом иногда сушится бельё. Римляне, построившие её, сочли бы это одновременно неуважительным — и совершенно естественным для живого города.",
+        story_label: "Неправильное имя",
+        story: "Арка называется Аркой Траяна как минимум с эпохи Ренессанса, когда гуманисты приписывали все крупные римские памятники, которые не могли объяснить, самому знаменитому из известных им императоров. Траян действительно был родом из соседней Италики в нынешней Андалусии — первый римский император из провинции, — так что атрибуция казалась правдоподобной. Современная археология датирует строительство на век раньше. Название прижилось. Мерида полна памятников, ошибочно атрибутированных энтузиастами эпохи Возрождения — правыми насчёт римлян, но ошибавшимися в деталях.",
+        kids_label: "⚔️ Детям",
+        kids: "Посмотрите на арку, а потом на окружающие здания. Арка выше четырёхэтажного дома рядом с ней. Она построена без цемента и раствора — каждый каменный блок держится за счёт соседей благодаря точности обработки. Римляне понимали: правильно вырезанная арка передаёт нагрузку в стороны, а не вниз. Выбейте замковый камень на вершине — вся арка рухнет. Этот замковый камень на своём месте уже 2000 лет, и никто его не трогал.",
+        connector: "~8 минут на юго-запад к реке"
+      },
+      {
+        name: "Арабская Алькасаба",
+        era: "Построена в 835 году · Мавританская крепость · Возведена из римских камней",
+        desc: "Арабская Алькасаба Мериды — мавританская крепость, возведённая в 835 году Абд ар-Рахманом II — но почти всё, из чего она построена, является римским. Стены, башни и фундаменты сложены из гранитных блоков, барабанов колонн и архитектурных фрагментов, снятых с римских построек по всему городу. Прогуливаясь по стенам, можно заметить римские надписи, перепрофилированные в обычные стройблоки, капители колонн в роли плитки и крышки саркофагов, переделанные в подоконники. Это не вандализм — так выживают города. Внутри крепости спуститесь к альхибе: цистерна римской эпохи с арабской отделкой, золотые рыбки в прозрачной воде, подковообразные арки над головой и тишина пространства, остававшегося прохладным и неподвижным двенадцать столетий.",
+        story_label: "Восстание 868 года",
+        story: "Мерида была одним из самых непокорных городов мавританской Испании. Алькасаба строилась специально для её усмирения после затяжного восстания против Кордовского эмирата — местное население, смесь испано-римских христиан и новообращённых, раз за разом отказывалось подчиняться центральной арабской власти. Абд ар-Рахман II возвёл крепость прямо над подходом к римскому мосту, чтобы военным способом контролировать весь въезд и выезд из города. Послание было архитектурным: эта территория оккупирована, и мы следим. Крепость сработала. Восстания прекратились.",
+        kids_label: "⚔️ Детям",
+        kids: "Стены этой арабской крепости сложены почти целиком из ворованных римских камней. Присмотритесь — найдёте высеченные римские буквы, куски колонн и даже фрагменты старых надгробий, вделанных в кладку как обычные блоки. Арабы, строившие это в 835 году, по сути разбирали один город, чтобы построить другой. И ещё: спуститесь к цистерне в нижней части крепости. Там живут золотые рыбки. Подземная цистерна 1200-летней давности с живыми рыбами — это очень конкретная вещь, которую не забудешь.",
+        connector: "~3 минуты · римский мост начинается прямо у западных ворот Алькасабы"
+      },
+      {
+        name: "Римский мост",
+        era: "I в. до н.э. · 792 метра · Длиннейший сохранившийся римский мост в мире",
+        desc: "Римский мост Мериды через Гвадиану — длиннейший сохранившийся римский мост в мире: 792 метра, 60 арок, построен в I веке до н.э. и по-прежнему используется ежедневно как пешеходный переход. Пятнадцать арок полностью оригинальные; остальные перестраивались после паводков. Пройдите его до конца. Виды назад — Алькасаба над речным берегом, современный мост Лузитания за ней, башня собора — это главная открытка Мериды. На противоположном берегу обернитесь и сфотографируйте мост с городом позади. Потом пройдите обратно. Этот мост обеспечивает одну и ту же переправу уже 2100 лет.",
+        story_label: "Мост, который определил провинцию",
+        story: "Серебряный путь — великая римская дорога, пронизывающая западную Иберию от Кадиса до Асторги, — пересекал Гвадиану здесь. Этот мост был не просто местным удобством, а стратегической артерией всего западного фронтира Римской империи. По этим камням шли армии, налоговые обозы, императорские депеши и товары целого континента. В Средние века он оставался единственной постоянной переправой через Гвадиану на сотни километров. Каждый город в западной Испании и Португалии, выросший на Серебряном пути, в каком-то смысле обязан своим существованием решению, принятому две тысячи лет назад: построить мост именно в этом месте.",
+        kids_label: "⚔️ Детям",
+        kids: "Этот мост длиной 792 метра — почти восемь футбольных полей подряд. Построен без единого механизма: только верёвки, деревянные леса, каменные блоки и десятки тысяч часов человеческого труда. В мирное время римские легионеры использовались как строители — армию без войны отправляли прокладывать дороги, возводить мосты и акведуки. Легионеры, построившие этот мост, только что закончили покорение севера Испании. Выйдите на середину и посмотрите вниз на реку. Вода, которая течёт под вами, течёт под римскими арками с тех пор, как не было ещё Иисуса.",
+        connector: null
+      }
+    ],
+    optional_title: "⏱ Дополнительно — Римский цирк",
+    optional_text: "Если позволяет время до обеда, Римский цирк находится в 15 минутах ходьбы на северо-восток (авенида Хуан Карлос I). Длиной 440 метров и вмещавший 30 000 зрителей, он был одним из крупнейших в Римской империи — масштаб «Бен-Гура». Большая часть погребена под современным городом, но раскопанные стартовые ворота (каркерес) и участок трассы открыты для посещения. Включён в единый билет."
+  }
+};
+
+let currentLang = 'en';
+
+function setLang(lang) {
+  currentLang = lang;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.textContent === lang.toUpperCase()));
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = T[lang][el.dataset.i18n] || ''; });
+  renderStops(lang);
+}
+
+function renderStops(lang) {
+  const container = document.getElementById('stops-container');
+  const data = T[lang];
+  let html = '';
+  data.stops.forEach((stop, i) => {
+    html += `
+    <article class="stop">
+      <div class="stop-num">${i + 1}</div>
+      <div class="stop-content">
+        <span class="stop-name">${stop.name}</span>
+        <span class="stop-era">${stop.era}</span>
+        <p class="stop-desc">${stop.desc}</p>
+        ${stop.story ? `<div class="story-box"><span class="story-label">${stop.story_label}</span><p>${stop.story}</p></div>` : ''}
+        ${stop.kids ? `<div class="kids-box"><span class="kids-label">${stop.kids_label}</span><p>${stop.kids}</p></div>` : ''}
+      </div>
+    </article>
+    ${stop.connector ? `<div class="connector">${stop.connector}</div>` : ''}`;
+  });
+  // Optional extra
+  html += `<div style="padding: 24px 0 8px 76px;">
+    <div class="optional-box">
+      <p><strong>${data.optional_title} — </strong>${data.optional_text}</p>
+    </div>
+  </div>`;
+  container.innerHTML = html;
+}
+
+document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = T.en[el.dataset.i18n] || ''; });
+renderStops('en');
+
+// MAP
+const map = L.map('map', { zoomControl: true, scrollWheelZoom: false });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 19 }).addTo(map);
+
+const stops = [
+  { num: 1, name: "Museo Nacional de Arte Romano", lat: 38.9169421, lng: -6.3395467 },
+  { num: 2, name: "Teatro Romano",                 lat: 38.9152142, lng: -6.338521  },
+  { num: 3, name: "Anfiteatro Romano",              lat: 38.9143,   lng: -6.3375    },
+  { num: 4, name: "Casa del Mitreo",               lat: 38.9110979, lng: -6.3415308 },
+  { num: 5, name: "Templo de Diana",               lat: 38.9164509, lng: -6.3442129 },
+  { num: 6, name: "Arco de Trajano",               lat: 38.9178366, lng: -6.3464203 },
+  { num: 7, name: "Alcazaba Árabe",                lat: 38.9151281, lng: -6.3477903 },
+  { num: 8, name: "Puente Romano",                 lat: 38.913754,  lng: -6.3500785 }
+];
+
+const coords = stops.map(s => [s.lat, s.lng]);
+L.polyline(coords, { color: '#4a1a7a', weight: 3, opacity: 0.75, dashArray: '6 4' }).addTo(map);
+stops.forEach(s => {
+  const icon = L.divIcon({
+    className: '',
+    html: `<div style="width:30px;height:30px;border-radius:50%;background:#4a1a7a;color:#fff;font-family:'Cinzel',serif;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(40,0,80,0.5);border:2px solid #f0edf6;">${s.num}</div>`,
+    iconSize: [30,30], iconAnchor: [15,15]
+  });
+  L.marker([s.lat, s.lng], { icon }).addTo(map).bindPopup(`<strong style="font-family:serif">${s.num}. ${s.name}</strong>`);
+});
+map.fitBounds(L.latLngBounds(coords), { padding: [40, 40] });
+</script>
+</body>
+</html>

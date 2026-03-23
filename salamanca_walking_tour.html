@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Salamanca — Walking Tour</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=IM+Fell+English+SC&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --parchment: #eef0f4;
+    --ink: #12192e;
+    --navy: #1a3060;
+    --gold: #9a7828;
+    --faded: #5a6480;
+    --border: #8a9bbf;
+    --green: #2a6050;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #b8c2d8; font-family: 'Cormorant Garamond', Georgia, serif; color: var(--ink); }
+  .page {
+    max-width: 860px; margin: 0 auto; background: var(--parchment);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    min-height: 100vh; padding: 0 0 60px; box-shadow: 0 0 60px rgba(0,0,20,0.4);
+  }
+  .header {
+    text-align: center; padding: 44px 40px 32px; border-bottom: 2px solid var(--border);
+    background: linear-gradient(to bottom, #d0d8ea, var(--parchment)); position: relative;
+  }
+  .header::before, .header::after { content: '✦ ✦ ✦'; display: block; color: var(--gold); font-size: 13px; letter-spacing: 8px; margin: 6px 0; }
+  .city-label { font-family: 'IM Fell English SC', serif; font-size: 13px; letter-spacing: 5px; color: var(--faded); text-transform: uppercase; margin-bottom: 10px; }
+  h1 { font-family: 'Cinzel', serif; font-size: 42px; font-weight: 600; color: var(--navy); line-height: 1.1; margin-bottom: 8px; text-shadow: 1px 1px 0 rgba(255,255,255,0.5); }
+  .subtitle { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 18px; color: var(--faded); font-weight: 300; }
+  .meta { margin-top: 18px; display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; font-size: 13px; color: var(--faded); letter-spacing: 1px; text-transform: uppercase; font-family: 'IM Fell English SC', serif; }
+
+  .lang-toggle {
+    position: absolute; top: 20px; right: 20px;
+    display: flex; border: 1.5px solid var(--border); border-radius: 6px; overflow: hidden;
+    font-family: 'IM Fell English SC', serif; font-size: 13px; letter-spacing: 1px;
+  }
+  .lang-btn {
+    padding: 6px 14px; cursor: pointer; background: transparent; border: none;
+    color: var(--faded); transition: all 0.2s; font-family: inherit; font-size: inherit; letter-spacing: inherit;
+  }
+  .lang-btn.active { background: var(--navy); color: #fff; }
+  .lang-btn:hover:not(.active) { background: rgba(26,48,96,0.1); }
+
+  #map { width: 100%; height: 390px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); filter: sepia(15%) hue-rotate(180deg) contrast(0.88) brightness(1.05); }
+  .legend { display: flex; gap: 24px; padding: 14px 40px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.25); flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-family: 'IM Fell English SC', serif; letter-spacing: 1px; font-size: 12px; color: var(--faded); }
+  .legend-swatch { width: 14px; height: 14px; border-radius: 2px; flex-shrink: 0; }
+  .intro { padding: 32px 52px 24px; border-bottom: 1px solid var(--border); }
+  .intro p { font-size: 18px; line-height: 1.8; color: var(--ink); font-style: italic; font-weight: 300; text-align: center; }
+  .drop-cap::first-letter { float: left; font-family: 'Cinzel', serif; font-size: 58px; line-height: 0.8; padding: 6px 10px 0 0; color: var(--navy); font-weight: 600; }
+  .stops { padding: 0 40px; }
+  .stop { display: grid; grid-template-columns: 52px 1fr; gap: 0 24px; padding: 36px 0; border-bottom: 1px dashed var(--border); }
+  .stop:last-child { border-bottom: none; }
+  .stop-num { width: 52px; height: 52px; border-radius: 50%; background: var(--navy); color: #fff; font-family: 'Cinzel', serif; font-size: 20px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 10px rgba(26,48,96,0.4); margin-top: 4px; }
+  .stop-name { font-family: 'Cinzel', serif; font-size: 20px; font-weight: 600; color: var(--navy); display: block; line-height: 1.2; }
+  .stop-era { font-family: 'IM Fell English SC', serif; font-size: 12px; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; display: block; margin: 3px 0 12px; }
+  .stop-desc { font-size: 17px; line-height: 1.8; color: var(--ink); margin-bottom: 12px; }
+  .story-box { background: rgba(26,48,96,0.07); border-left: 3px solid var(--navy); padding: 12px 16px; margin-top: 10px; border-radius: 0 4px 4px 0; }
+  .story-label { font-family: 'IM Fell English SC', serif; font-size: 11px; letter-spacing: 2px; color: var(--navy); text-transform: uppercase; display: block; margin-bottom: 6px; }
+  .story-box p { font-size: 15.5px; line-height: 1.75; color: var(--faded); font-style: italic; }
+  .kids-box { background: rgba(42,96,80,0.07); border-left: 3px solid var(--green); padding: 12px 16px; margin-top: 10px; border-radius: 0 4px 4px 0; }
+  .kids-label { font-family: 'IM Fell English SC', serif; font-size: 11px; letter-spacing: 2px; color: var(--green); text-transform: uppercase; display: block; margin-bottom: 6px; }
+  .kids-box p { font-size: 15.5px; line-height: 1.75; color: #2a4a40; font-style: italic; }
+  .connector { display: flex; align-items: center; gap: 10px; padding: 8px 0 2px; margin-left: 76px; font-family: 'IM Fell English SC', serif; font-size: 12px; letter-spacing: 1.5px; color: var(--faded); }
+  .connector::before { content: '↓'; font-size: 16px; color: var(--border); }
+  .footer { text-align: center; padding: 24px 40px; border-top: 2px solid var(--border); color: var(--faded); font-family: 'IM Fell English SC', serif; font-size: 12px; letter-spacing: 2px; }
+  .ornament { color: var(--gold); font-size: 18px; display: block; margin: 4px 0 8px; }
+  @media print {
+    body { background: white; }
+    .page { box-shadow: none; max-width: 100%; }
+    #map { height: 300px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .stop { page-break-inside: avoid; }
+    .story-box, .kids-box, .stop-num { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .lang-toggle { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="header">
+  <div class="lang-toggle">
+    <button class="lang-btn active" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" onclick="setLang('ru')">RU</button>
+  </div>
+  <div class="city-label" data-i18n="city_label"></div>
+  <h1>Salamanca</h1>
+  <p class="subtitle" data-i18n="subtitle"></p>
+  <div class="meta">
+    <span data-i18n="meta_time"></span>
+    <span data-i18n="meta_stops"></span>
+    <span data-i18n="meta_dist"></span>
+    <span data-i18n="meta_family"></span>
+  </div>
+</header>
+
+<div id="map"></div>
+
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-swatch" style="background:rgba(26,48,96,0.15);border-left:3px solid #1a3060;"></div>
+    <span data-i18n="legend_story"></span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch" style="background:rgba(42,96,80,0.12);border-left:3px solid #2a6050;"></div>
+    <span data-i18n="legend_kids"></span>
+  </div>
+</div>
+
+<section class="intro">
+  <p class="drop-cap" data-i18n="intro"></p>
+</section>
+
+<section class="stops" id="stops-container"></section>
+
+<footer class="footer">
+  <span class="ornament">❧</span>
+  <span data-i18n="footer_title"></span>
+  <br><br>
+  <em style="font-family:'Cormorant Garamond';font-style:italic;font-size:13px;letter-spacing:0;color:var(--faded);" data-i18n="footer_notes"></em>
+</footer>
+
+</div>
+
+<script>
+const T = {
+  en: {
+    city_label: "Castile and León, Spain · UNESCO World Heritage",
+    subtitle: "A Walking Tour Through the Golden City of the Renaissance",
+    meta_time: "⏱ ~2.5–3 hours",
+    meta_stops: "📍 10 Stops",
+    meta_dist: "🥾 ~2 km",
+    meta_family: "👨‍👧 Family Friendly",
+    legend_story: "Historical Story",
+    legend_kids: "🐸 For the Kids",
+    intro: "Salamanca glows. Its buildings are carved from a warm golden sandstone called Villamayor stone that turns deep amber at sunset, earning the city its nickname — La Dorada, the Golden City. Home to one of the oldest universities in the world, a skyline of spires and towers, and streets that have been walked by scholars, saints, and conquistadors for nearly a thousand years, Salamanca is one of the finest intact Renaissance cities anywhere in Europe.",
+    footer_title: "Salamanca · declared UNESCO World Heritage Site in 1988",
+    footer_notes: "Practical notes: Casa de las Conchas free · University exterior free, interior ~€10 · New + Old Cathedral combined ~€10 · Ieronimus tower ~€4 · Huerto garden free · Roman Bridge free · Torre del Clavero exterior only (free) · San Esteban ~€4. Most sites close 2–4 pm. The city is best at golden hour — plan to be near the cathedral around 6–7 pm when the stone glows.",
+    stops: [
+      {
+        name: "Plaza Mayor",
+        era: "Starting Point · Built 1729–1755 · Baroque Masterpiece",
+        desc: "Unanimously regarded as the most beautiful plaza in all of Spain, and a serious contender for the finest in Europe. The Plaza Mayor of Salamanca is a perfectly symmetrical, fully enclosed Baroque square designed by architect Alberto de Churriguera and built between 1729 and 1755. Unlike most great plazas, it was conceived as a single unified composition — not assembled piecemeal over centuries. Every arcade, every medallion portrait carved into the sandstone, every proportion was planned at once. Today it functions as the living room of the city: students, professors, and tourists share the same café tables at all hours.",
+        story_label: "The Portrait Gallery in Stone",
+        story: "Running around the arcade above the arches, 88 stone medallions portray Spanish kings, famous Salamantinos, and national heroes — from El Cid to Columbus to Franco. During the Franco dictatorship, the empty medallion reserved for the next monarch was quietly filled with Franco's portrait. After his death it was replaced. The medallion for King Felipe VI was added in 2022 — the most recent carving in a building that is 270 years old.",
+        kids_label: "🐸 For the Kids",
+        kids: "Count the arches around the square — there are 88 of them, all identical. Then look above each arch for the carved stone portrait medallions. Can you find the one that looks slightly newer than the others? That's King Felipe VI, added just a few years ago. The square has a portrait gallery built into its walls — but it takes 270 years to complete.",
+        connector: "~5 min walk south-west via Rúa Mayor"
+      },
+      {
+        name: "Casa de las Conchas",
+        era: "Late 15th Century · 300 Stone Scallop Shells · Free Entry",
+        desc: "One of the most visually distinctive buildings in Spain: a 15th-century palace whose entire exterior façade is studded with 300 carved stone scallop shells. Built by Rodrigo Arias Maldonado, a knight of the Order of Santiago, around 1517, it is now Salamanca's public library — which means you can walk straight inside for free and explore the magnificent two-storey courtyard with its intricate Gothic stone lacework screens. The contrast between the weighty shell-encrusted exterior and the delicate, lace-like interior is one of the great architectural surprises in the city.",
+        story_label: "Why Shells?",
+        story: "The scallop shell is the symbol of the Camino de Santiago and of the Order of Santiago, to which the builder belonged. But local legend adds another layer: one tradition holds that the shells protected the building from the evil eye. Three hundred shells, and probably three hundred different explanations. The real reason is probably simpler: it was fashionable, it was expensive, and it announced that the owner was extremely important.",
+        kids_label: "🐸 For the Kids",
+        kids: "Count the shells — there are exactly 300 on the facade. Each was carved individually from the same golden sandstone. Now go inside and look up at the stone screens on the upper gallery: they look like stone lace. Stonecutters in 1517 carved something that looks like fabric out of rock. How long do you think that took?",
+        connector: "~2 min · turn the corner onto Patio de Escuelas"
+      },
+      {
+        name: "University of Salamanca — The Plateresque Façade",
+        era: "Founded 1218 · Façade Carved c. 1534 · The Frog Hunt",
+        desc: "The University of Salamanca is the oldest university in Spain and one of the four oldest in the world, founded in 1218 — when Oxford was a century old and Cambridge hadn't yet opened. Its famous main façade, carved around 1534, is the supreme example of the Plateresque style: an explosion of interlocking medallions, grotesque figures, heraldic shields, royal portraits, and mythological scenes carved so densely in golden sandstone that it resembles worked silverplate — hence \"plateresco\" (silversmith-like). Stand back and let your eyes wander. There is no focal point. Every centimetre competes with every other.",
+        story_label: "Fray Luis de León",
+        story: "One of Spain's greatest Renaissance poets, Fray Luis de León, taught here. In 1572 he was arrested by the Inquisition for translating the Song of Solomon directly from Hebrew. He was imprisoned for nearly five years, then acquitted and returned to his lecture hall. His first words to his students, according to legend, were: \"As we were saying yesterday…\" — as if nothing had happened. Whether true or not, the sentence became one of the most quoted phrases in Spanish intellectual history.",
+        kids_label: "🐸 The Frog Challenge",
+        kids: "Somewhere on the façade, a tiny carved frog is hidden on top of a skull. Finding it without help is considered good luck — tradition says students who spot it before an exam will pass. Don't cheat: stare at the façade and search. It's on the right side of the façade, roughly at eye level — but that's all the help you get.",
+        connector: "~3 min · continue south along Patio de Escuelas to the cathedral"
+      },
+      {
+        name: "Catedral Nueva — New Cathedral",
+        era: "16th–18th Century · Late Gothic & Baroque · The Astronaut",
+        desc: "The New Cathedral of Salamanca began construction in 1513 and wasn't completed until the 18th century — over 500 years old. One of the largest cathedrals in Spain, its soaring Late Gothic interior is punctuated by Baroque chapels added over subsequent centuries. The western portal is a masterpiece of Plateresque decoration. For the best experience of the building, consider the Ieronimus tower route: you walk across the roof, through the tower passages, and look down into the nave from heights you should not normally be able to reach.",
+        story_label: "The Astronaut & the Dragon",
+        story: "In 1992, during a restoration of the northern portal, stonemasons followed the centuries-old tradition of leaving a hidden personal mark. Among the carvings they added: a tiny astronaut in a spacesuit, and an ice-cream-eating demon. Both are real. Both are on the cathedral. The astronaut is on the left doorframe of the Puerta de Ramos, roughly at head height — look for a modern figure among the 16th-century carvings.",
+        kids_label: "🐸 For the Kids",
+        kids: "This cathedral has a secret astronaut carved into it. In 1992, stonemasons restoring the façade hid a tiny modern figure among the 500-year-old carvings. Find the Puerta de Ramos (north door) and search the left doorframe at eye level. There's also a demon eating an ice cream cone on the same portal. Two things that don't belong in the 16th century — and both are officially there.",
+        connector: "~2 min · the Old Cathedral is accessed from inside the New"
+      },
+      {
+        name: "Catedral Vieja — Old Cathedral",
+        era: "12th–13th Century · Romanesque · 53-Panel Altarpiece",
+        desc: "Swallowed up by the New Cathedral built alongside it, the Old Cathedral of Salamanca is a masterpiece of Romanesque architecture that many visitors walk straight past. Don't. The interior is low, dim, and intimate, and its most extraordinary feature is the altarpiece: 53 painted panels depicting scenes from the life of Christ and the Virgin, created between 1445 and 1456 by Italian painter Dello Delli — a riot of Byzantine gold and early Renaissance colour. Above it, the ribbed dome of the Torre del Gallo filters light through its Byzantine lantern in a way barely changed since the 12th century.",
+        story_label: "Bishop Jerome of Périgord",
+        story: "The Old Cathedral was founded by Bishop Jerome of Périgord — the same French bishop who appears in the epic poem El Cid as the warrior cleric who fights alongside Rodrigo Díaz de Vivar. Whether the historical Jerome was as violent as the poem suggests is debatable, but he was certainly real, he was certainly here, and the cathedral he founded outlasted every crusade he ever preached by eight centuries.",
+        kids_label: "🐸 For the Kids",
+        kids: "Count the painted panels on the altarpiece — there are 53, all created by one Italian painter between 1445 and 1456. Then look up at the dome: the striped, scaly exterior is called the Torre del Gallo — the Rooster Tower — because of the weathervane cockerel on top. Built in the 12th century and still standing after 900 years.",
+        connector: "~3 min · exit south and follow the cathedral walls to the garden"
+      },
+      {
+        name: "Huerto de Calixto y Melibea",
+        era: "Medieval Garden · From a 15th-Century Novel · Free Entry",
+        desc: "Tucked against the southern wall of the cathedral, with vertiginous views over the Tormes river valley, this terraced garden is one of the most unexpected places in Salamanca. It takes its name from La Celestina — one of the first great works of Spanish literature, written around 1499 — whose characters meet and fall in love in a garden imagined to be very much like this one. The garden is free to enter, beautifully maintained, and offers the finest view of the cathedral's exterior from directly below. In summer the shade is a relief; in spring the roses are remarkable.",
+        story_label: "La Celestina — Spain's First Novel",
+        story: "Written around 1499 by Fernando de Rojas, La Celestina predates Don Quixote by over a century. The story involves a nobleman who falls obsessively in love with a noblewoman, hires a scheming go-between to arrange the affair, and the whole enterprise ends in murder, suicide, and grief for everyone. It was enormously popular, widely condemned by the Church, and translated across Europe. Standing in this garden, you are standing inside a 500-year-old love story.",
+        kids_label: "🐸 For the Kids",
+        kids: "Look over the garden wall — far below is the Tormes river and the Roman bridge. The cathedral wall rises above you. This is the best free view in Salamanca and almost no one finds it because it's hidden down a side street. Also: look at the city wall you're standing beside. That stonework is Roman. You are leaning against a 2,000-year-old wall.",
+        connector: "~5 min walk west down to the river"
+      },
+      {
+        name: "Puente Romano — Roman Bridge",
+        era: "1st Century AD · 26 Arches · 2,000-Year-Old Crossing",
+        desc: "The Roman bridge across the Tormes is not a ruin: it is a functioning bridge still in daily use, having served pedestrians for two thousand years. Built in the 1st century AD as part of the Via de la Plata — the great Roman silver road — it originally had 26 arches, of which 15 are original Roman stonework. Cross it completely. The view of Salamanca from the south bank — cathedral towers, the Old Cathedral dome, and the golden city rising above the river — is the best photograph in Salamanca and the image every guidebook uses.",
+        story_label: "The Bull of Salamanca",
+        story: "At the northern end of the bridge, a battered granite bull stands on a plinth. It is an Iberian votive sculpture, probably pre-Roman, and it appears in the opening chapter of the 16th-century novel Lazarillo de Tormes — one of the first works of Spanish prose fiction. In the novel, a blind man tricks the young Lazaro into headbutting the bull. The real bull is still here, and people still pat it.",
+        kids_label: "🐸 For the Kids",
+        kids: "You are walking across a bridge that has been here for 2,000 years. Julius Caesar was alive when this was built. The Visigoths crossed it. The Moors crossed it. El Cid crossed it. Medieval pilgrims crossed it on their way to Santiago de Compostela. Now you're crossing it. Walk all the way to the other side and turn around — that view of the cathedral is the one on every postcard.",
+        connector: "~10 min walk back north via Calle Prior"
+      },
+      {
+        name: "Torre del Clavero",
+        era: "Late 15th Century · Octagonal Turrets · All That Remains",
+        desc: "Standing alone at a street corner, the Torre del Clavero is a striking 15th-century defensive tower built for Francisco de Sotomayor, the clavero (key-holder) of the Order of Alcántara. It is all that survives of what was once a large fortified palace. The lower section is a simple, powerful square tower; the upper section bursts into eight small circular turrets with elaborate Gothic tracery, creating a silhouette that looks more like a crown than a military structure. The tower cannot be entered but is worth a slow circuit on foot.",
+        story_label: "A Palace Reduced to a Tower",
+        story: "The rest of the Sotomayor palace was demolished in stages over the centuries — sold off, converted, finally cleared in the 19th century. The tower survived simply because it was too expensive and too solid to pull down. This is how much of medieval Salamanca disappeared: not in a single catastrophe, but through slow attrition, one building at a time, as tastes and owners changed.",
+        kids_label: "🐸 For the Kids",
+        kids: "Walk all the way around the tower. The bottom half is plain and military. The top half looks like a cake — eight small round turrets with Gothic carvings between them. The same builder made both halves. Why would you make the top of a defensive tower look decorative? Because by 1480, Salamanca was at peace and the tower was a status symbol, not a fort.",
+        connector: "~6 min south-east to Plaza del Concilio de Trento"
+      },
+      {
+        name: "Convento de San Esteban",
+        era: "16th Century Plateresque · Columbus Connection · Cloisters",
+        desc: "The Dominican Convent of San Esteban is one of the most important religious buildings in Salamanca — and one of the most significant in the history of the Americas. Its towering Plateresque façade (1524–1610) rivals the University's in richness, depicting the martyrdom of St. Stephen in extraordinary carved relief. The two-storey cloister within is vast, peaceful, and magnificent. The Dominican friars of San Esteban were Columbus's most consistent academic advocates — when Columbus was struggling to win royal funding, it was the theologians here who argued his case before Queen Isabella.",
+        story_label: "Francisco de Vitoria — Father of International Law",
+        story: "Buried in the cloister of San Esteban is Francisco de Vitoria, a Dominican theologian who, in the 1530s, gave lectures now considered the founding texts of modern international law. Vitoria argued that the indigenous peoples of the Americas had natural rights that Spain was bound to respect — a radical position at the time. His lectures were suppressed. He is now credited, posthumously and inconveniently for 16th-century Spain, with laying the groundwork for human rights law.",
+        kids_label: "🐸 For the Kids",
+        kids: "The monks who lived here helped Christopher Columbus convince Queen Isabella to pay for his voyage to the Americas in 1492. Without the academics of Salamanca, there might have been no expedition. The people who changed the map of the world were not sailors first — they were arguing in cloisters like this one. The façade took 86 years to complete — the last stones were being carved when Shakespeare was alive.",
+        connector: "~8 min north back toward Plaza Mayor via Calle San Pablo"
+      },
+      {
+        name: "Ieronimus — Cathedral Tower Route",
+        era: "Rooftop Route · Best Views in Salamanca · ~€4",
+        desc: "End your tour above the city. The Ieronimus route is a separate ticketed experience that takes you through the towers and across the rooftops of the New Cathedral — along narrow internal passages, up spiral staircases, across the roof between flying buttresses, and into the bell tower itself (traffic lights control the flow of people on the narrow staircase). The view from the top takes in the entire golden city, the Roman bridge, the river plains beyond, and directly below you — the intricate Plateresque stonework of the roof you are standing on. The bells ring while you are there.",
+        story_label: "Building a Cathedral for 300 Years",
+        story: "Construction on the New Cathedral began in 1513 and was not officially completed until 1733 — 220 years of continuous work. During that time, architectural fashions changed completely: the building begins as Late Gothic, passes through Renaissance, and ends in Baroque. From the tower, you can look down and identify exactly where one century ends and another begins — in the stonework, the window shapes, the decorative language.",
+        kids_label: "🐸 For the Kids",
+        kids: "The Ieronimus route has actual traffic lights inside the cathedral tower to stop people bumping into each other on the narrow spiral stairs. When the light is green, you go. When it's red, you wait. It's the world's most historic traffic management system. At the top, you are standing on the roof of a cathedral. The bells will ring while you're there. It's very loud. You will feel it in your chest.",
+        connector: null
+      }
+    ]
+  },
+
+  ru: {
+    city_label: "Кастилия и Леон, Испания · Объект Всемирного наследия ЮНЕСКО",
+    subtitle: "Пешеходная прогулка по золотому городу эпохи Ренессанса",
+    meta_time: "⏱ ~2,5–3 часа",
+    meta_stops: "📍 10 остановок",
+    meta_dist: "🥾 ~2 км",
+    meta_family: "👨‍👧 Для всей семьи",
+    legend_story: "Историческая справка",
+    legend_kids: "🐸 Детям",
+    intro: "Саламанка светится. Её здания сложены из тёплого золотистого песчаника — камня Вильямайор, который на закате превращается в янтарь. Отсюда прозвище города — La Dorada, Золотой. Родина одного из старейших университетов мира, горизонт из шпилей и башен, улицы, по которым почти тысячу лет ходили учёные, святые и конкистадоры — Саламанка является одним из лучших сохранившихся ренессансных городов Европы.",
+    footer_title: "Саламанка · объект Всемирного наследия ЮНЕСКО с 1988 года",
+    footer_notes: "Практическая информация: Дом Ракушек — бесплатно · Фасад университета — бесплатно, интерьер ~€10 · Новый + Старый собор вместе ~€10 · Башня Иеронимус ~€4 · Сад Калисто и Мелибеи — бесплатно · Римский мост — бесплатно · Башня Кладовщика — только снаружи, бесплатно · Монастырь Сан Эстебан ~€4. Большинство объектов закрыты с 14:00 до 16:00. Лучшее время — золотой час: планируйте оказаться у собора около 18–19 часов, когда камень светится.",
+    stops: [
+      {
+        name: "Пласа Майор",
+        era: "Начало маршрута · Построена в 1729–1755 гг. · Барочный шедевр",
+        desc: "Единогласно признана красивейшей площадью Испании и серьёзным претендентом на звание лучшей в Европе. Пласа Майор в Саламанке — идеально симметричный, полностью замкнутый барочный прямоугольник, спроектированный архитектором Альберто де Чурригерой и построенный в 1729–1755 годах. В отличие от большинства великих площадей, она задумывалась как единая композиция — не складывалась по кусочку на протяжении веков. Каждая аркада, каждый медальон-портрет в камне, каждая пропорция были запланированы сразу. Сегодня площадь — гостиная города: студенты, профессора и туристы делят одни и те же столики кафе в любое время суток.",
+        story_label: "Портретная галерея в камне",
+        story: "По аркадам над арками тянутся 88 каменных медальонов с портретами испанских королей, знаменитых саламантинцев и национальных героев — от Сида до Колумба и Франко. При диктатуре Франко пустой медальон, зарезервированный для следующего монарха, тихо заполнили портретом каудильо. После его смерти медальон заменили. Портрет нынешнего короля Фелипе VI добавлен в 2022 году — самая свежая резьба в здании, которому 270 лет.",
+        kids_label: "🐸 Детям",
+        kids: "Сосчитайте арки вокруг площади — их 88, и все одинаковые. Потом посмотрите над каждой аркой на каменные медальоны с портретами. Можете найти тот, что выглядит немного новее остальных? Это Фелипе VI, добавленный всего несколько лет назад. На стенах площади встроена портретная галерея — но на её завершение уходит 270 лет.",
+        connector: "~5 минут на юго-запад по улице Руа Майор"
+      },
+      {
+        name: "Дом Ракушек (Casa de las Conchas)",
+        era: "Конец XV века · 300 каменных ракушек · Вход бесплатный",
+        desc: "Одно из самых узнаваемых зданий Испании: дворец XV века, весь фасад которого усыпан 300 вырезанными из камня гребешками. Построен около 1517 года Родриго Ариасом Мальдонадо, рыцарем ордена Сантьяго, сегодня он является городской публичной библиотекой — то есть можно войти совершенно бесплатно и осмотреть великолепный двухъярусный внутренний двор с ажурными готическими каменными экранами. Контраст между тяжёлым, усыпанным ракушками фасадом и хрупким кружевным интерьером — один из главных архитектурных сюрпризов Саламанки.",
+        story_label: "Почему ракушки?",
+        story: "Гребешок — символ Камино де Сантьяго и ордена Сантьяго, к которому принадлежал строитель. Но местная легенда добавляет своё: по одной версии, ракушки защищали здание от сглаза. Триста ракушек — и, вероятно, триста разных объяснений. Истинная причина, скорее всего, проще: это было модно, дорого и недвусмысленно говорило о статусе владельца.",
+        kids_label: "🐸 Детям",
+        kids: "Сосчитайте ракушки — их ровно 300 на фасаде, каждая вырезана вручную из того же золотистого песчаника. Зайдите во двор и посмотрите вверх на каменные экраны верхней галереи: они выглядят как каменное кружево. Камнерезы 1517 года вырезали из камня нечто, похожее на ткань. Как думаете, сколько это заняло времени?",
+        connector: "~2 минуты · сворачиваем на Патио де Эскуэлас"
+      },
+      {
+        name: "Университет Саламанки — Платереск",
+        era: "Основан в 1218 году · Фасад ок. 1534 г. · Охота на лягушку",
+        desc: "Университет Саламанки — старейший в Испании и один из четырёх старейших в мире, основан в 1218 году — когда Оксфорд уже существовал век, а Кембридж ещё не открылся. Знаменитый главный фасад, вырезанный около 1534 года, — высший образец стиля платереск: взрыв переплетённых медальонов, гротескных фигур, геральдических щитов, королевских портретов и мифологических сцен, вырезанных в золотистом песчанике с такой плотностью, что камень напоминает чеканное серебро — отсюда «платереско» (от platero — ювелир). Отойдите назад и просто смотрите. Здесь нет единого центра — каждый сантиметр соперничает с соседним.",
+        story_label: "Фрай Луис де Леон",
+        story: "Один из величайших поэтов испанского Ренессанса, Фрай Луис де Леон, преподавал здесь. В 1572 году он был арестован инквизицией за перевод Песни Песней непосредственно с иврита. Почти пять лет под стражей — затем оправдание и возвращение в аудиторию. По легенде, первые слова к студентам были: «Как мы говорили вчера…» — словно ничего не случилось. Правда это или нет — фраза стала одной из самых цитируемых в истории испанской интеллектуальной жизни.",
+        kids_label: "🐸 Испытание лягушкой",
+        kids: "Где-то на фасаде спрятана крошечная вырезанная лягушка — сидит на черепе. Найти её без подсказки считается удачей: по традиции, студенты, которые находят лягушку перед экзаменом, его сдадут. Не подглядывайте — честно смотрите на фасад. Лягушка на правой стороне, примерно на уровне глаз — но это всё, что вам подскажут.",
+        connector: "~3 минуты на юг по Патио де Эскуэлас к собору"
+      },
+      {
+        name: "Новый собор (Catedral Nueva)",
+        era: "XVI–XVIII века · Поздняя готика и барокко · Астронавт в камне",
+        desc: "Строительство Нового собора Саламанки началось в 1513 году и завершилось лишь в XVIII веке — ему более 500 лет. Один из крупнейших соборов Испании: стремительный позднеготический интерьер перемежается барочными капеллами, добавленными в последующие века. Западный портал — шедевр платерескового декора. Лучший способ воспринять здание как архитектуру — маршрут Иеронимус: вы идёте по крыше, через башенные переходы и смотрите вниз на неф с высоты, с которой обычно увидеть его невозможно.",
+        story_label: "Астронавт и демон с мороженым",
+        story: "В 1992 году во время реставрации северного портала каменщики последовали старой традиции оставлять в работе личную скрытую метку. В числе добавленных ими изображений — крошечный астронавт в скафандре и демон, поедающий мороженое. Оба настоящие. Оба — на соборе. Астронавт — на левом откосе Пуэрта де Рамос, примерно на уровне головы: ищите современную фигуру среди резьбы XVI века.",
+        kids_label: "🐸 Детям",
+        kids: "В этом соборе спрятан астронавт. В 1992 году реставраторы скрыли крошечную современную фигурку среди 500-летней резьбы. Найдите Пуэрта де Рамос (северные двери) и ищите на левом откосе на уровне глаз. На том же портале есть демон, поедающий мороженое. Два персонажа, которым совершенно нечего делать в XVI веке — и оба официально там находятся.",
+        connector: "~2 минуты · Старый собор — вход изнутри Нового"
+      },
+      {
+        name: "Старый собор (Catedral Vieja)",
+        era: "XII–XIII века · Романика · Алтарь из 53 панелей",
+        desc: "Поглощённый выросшим рядом Новым собором, Старый собор Саламанки — шедевр романской архитектуры, мимо которого многие посетители проходят не останавливаясь. Не делайте этой ошибки. Интерьер низкий, сумрачный, камерный — и его главная жемчужина — алтарь из 53 расписных панелей с изображениями сцен из жизни Христа и Девы Марии, созданных в 1445–1456 годах итальянским художником Делло Делли: буйство византийского золота и раннеренессансных красок. Над алтарём — ребристый купол башни Торре дель Гальо, фильтрующий свет через свой византийский фонарь почти так же, как в XII веке.",
+        story_label: "Епископ Жером из Перигора",
+        story: "Старый собор был основан епископом Жеромом из Перигора — тем самым французским прелатом, который фигурирует в поэме о Сиде как воин-священник, сражающийся рядом с Родриго Диасом де Вивар. Насколько исторический Жером был столь же воинственен, как в поэме — спорный вопрос. Но он был реальным человеком, он был здесь, и основанный им собор пережил все когда-либо проповеданные им крестовые походы на восемь столетий.",
+        kids_label: "🐸 Детям",
+        kids: "Сосчитайте панели алтаря — их 53, и все написаны одним итальянским художником в 1445–1456 годах. Затем посмотрите вверх на купол: полосатая чешуйчатая башня называется Торре дель Гальо — Башня Петуха — из-за флюгера-петуха на вершине. Построена в XII веке и стоит 900 лет.",
+        connector: "~3 минуты · выходим на юг и идём вдоль стен собора к саду"
+      },
+      {
+        name: "Сад Калисто и Мелибеи",
+        era: "Средневековый сад · Из романа XV века · Вход бесплатный",
+        desc: "Притаившийся у южной стены собора с головокружительным видом на долину реки Тормес, этот террасный сад — одно из самых неожиданных мест Саламанки. Своё название он получил от «Селестины» — одного из первых великих произведений испанской литературы, написанного около 1499 года, — чьи герои встречаются и влюбляются в саду, очень похожем на этот. Сад открыт бесплатно, ухожен, и отсюда открывается лучший в городе вид на внешние стены собора снизу. Летом здесь спасительная тень, весной — потрясающие розы.",
+        story_label: "«Селестина» — первый роман Испании",
+        story: "Написанная около 1499 года Фернандо де Рохасом «Селестина» предшествует «Дон Кихоту» более чем на столетие. Сюжет: дворянин одержимо влюбляется в девушку из знатной семьи, нанимает хитроумную сводницу Селестину, чтобы устроить роман, — и всё заканчивается убийством, самоубийством и горем для всех. Книга пользовалась огромной популярностью, была осуждена церковью и переведена по всей Европе. Стоя в этом саду, вы стоите внутри 500-летней любовной истории.",
+        kids_label: "🐸 Детям",
+        kids: "Перегнитесь через стену террасы — далеко внизу река Тормес и римский мост. Над вами — стена собора. Это лучший бесплатный вид в Саламанке, и почти никто его не находит, потому что он спрятан в переулке. Обратите внимание на городскую стену рядом: этой кладке 2000 лет. Вы опираетесь о стену, которую строили при Юлии Цезаре.",
+        connector: "~5 минут пешком на запад вниз к реке"
+      },
+      {
+        name: "Римский мост (Puente Romano)",
+        era: "I век н.э. · 26 арок · Переправа, которой 2000 лет",
+        desc: "Римский мост через Тормес — не руина: это действующий мост, которым пользуются каждый день — и так уже две тысячи лет. Построен в I веке н.э. как часть Серебряного пути — великой римской дороги. Из первоначальных 26 арок 15 — оригинальная римская кладка. Дойдите до конца и обернитесь: вид на Саламанку с южного берега — башни собора, купол Старого собора и золотой город над рекой — это тот самый снимок, который используют в каждом путеводителе.",
+        story_label: "Бык Саламанки",
+        story: "У северного конца моста на постаменте стоит потёртый гранитный бык — иберийская культовая скульптура, вероятно доримская. Он появляется в первой главе романа «Ласарильо с Тормеса» XVI века — одного из основоположников испанской прозы. По сюжету слепой обманом заставляет молодого Ласаро удариться лбом о быка. Настоящий бык по-прежнему здесь, и его по-прежнему гладят.",
+        kids_label: "🐸 Детям",
+        kids: "Вы идёте по мосту, которому 2000 лет. Когда его строили, был жив Юлий Цезарь. По нему проходили вестготы, мавры, Сид, средневековые паломники на пути в Сантьяго де Компостела. Теперь — вы. Дойдите до другого берега и обернитесь: вид на собор — тот самый, который на каждой открытке. На южном берегу есть маленькая треугольная площадка для селфи — она справа после моста. Воспользуйтесь.",
+        connector: "~10 минут обратно на север по улице Калье Приор"
+      },
+      {
+        name: "Башня Кладовщика (Torre del Clavero)",
+        era: "Конец XV века · Восьмиугольные башенки · Всё, что осталось",
+        desc: "Одиноко стоящая на перекрёстке, башня Кладовщика — выразительная оборонительная постройка XV века, возведённая для Франсиско де Сотомайора, кладовщика (хранителя ключей) ордена Алькантара. Это всё, что уцелело от некогда большого укреплённого дворца. Нижняя часть — простая мощная квадратная башня; верхняя взрывается восемью небольшими круглыми башенками с готическим каменным кружевом — силуэт больше похож на корону, чем на военное сооружение. Внутрь не попасть, но обойти башню кругом стоит — декор на каждой грани разный.",
+        story_label: "Дворец, ставший башней",
+        story: "Остальная часть дворца Сотомайор сносилась постепенно на протяжении веков — продавалась, перестраивалась, в итоге снесена в XIX веке. Башня выжила лишь потому, что была слишком дорога и слишком крепка для сноса. Именно так исчезала большая часть средневековой Саламанки: не в одной катастрофе, а в долгом истирании — по одному зданию за раз, по мере смены вкусов и владельцев.",
+        kids_label: "🐸 Детям",
+        kids: "Обойдите башню по кругу. Нижняя половина — строгая, военная. Верхняя — как торт: восемь маленьких круглых башенок с готической резьбой между ними. Обе половины строил один и тот же архитектор. Почему верхушку оборонительной башни сделали декоративной? Потому что к 1480 году Саламанка жила в мире, и башня превратилась в символ статуса, а не в укрепление.",
+        connector: "~6 минут на юго-восток до площади Пласа дель Консилио де Тренто"
+      },
+      {
+        name: "Монастырь Сан Эстебан",
+        era: "Платереск XVI века · Колумб · Монастырские дворики",
+        desc: "Доминиканский монастырь Сан Эстебан — один из важнейших религиозных памятников Саламанки и одно из ключевых мест в истории Америки. Его монументальный платерескный фасад (1524–1610 гг.) не уступает университетскому по богатству: сцена мученичества святого Стефана в изумительном рельефе. Двухъярусный внутренний двор — огромный, тихий, великолепный. Монахи-доминиканцы Сан Эстебана были главными академическими защитниками Колумба: когда тот с трудом добивался королевского финансирования, именно здешние богословы убеждали королеву Изабеллу.",
+        story_label: "Франсиско де Витория — отец международного права",
+        story: "В монастырском дворике захоронен Франсиско де Витория — доминиканский богослов, который в 1530-х годах прочёл лекции, ныне считающиеся основополагающими текстами современного международного права. Витория утверждал, что коренные народы Америки обладают естественными правами, которые Испания обязана уважать — радикальная и опасная позиция в то время. Его лекции были запрещены. Посмертно — и крайне неудобно для Испании XVI века — он признан основателем теории прав человека.",
+        kids_label: "🐸 Детям",
+        kids: "Монахи, жившие здесь, помогли Христофору Колумбу убедить королеву Изабеллу оплатить его плавание к берегам Америки в 1492 году. Без учёных Саламанки экспедиции могло и не быть. Люди, изменившие карту мира, были не сначала мореплавателями — они спорили в монастырских дворах вроде этого. Фасад строился 86 лет — последние камни клали в эпоху Шекспира.",
+        connector: "~8 минут на север к Пласа Майор по улице Калье Сан Пабло"
+      },
+      {
+        name: "Иеронимус — Маршрут по башням собора",
+        era: "Маршрут по крыше · Лучший вид Саламанки · ~€4",
+        desc: "Завершите прогулку над городом. Маршрут Иеронимус — отдельный платный аттракцион, который ведёт вас через башни и по крыше Нового собора: по узким внутренним переходам, вверх по винтовым лестницам, по кровле между аркбутанами и в саму колокольню (на узкой лестнице работают светофоры). С вершины виден весь золотой город, римский мост, речные равнины за ним — и прямо под вами — затейливая платерескная резьба кровли, по которой вы только что шли. Пока вы там, бьют колокола.",
+        story_label: "300 лет строительства",
+        story: "Строительство Нового собора началось в 1513 году и официально завершилось в 1733-м — 220 лет непрерывной работы. За это время архитектурная мода менялась несколько раз: здание начинается как поздняя готика, проходит через Ренессанс и завершается барокко. С башни можно буквально смотреть вниз и видеть, где кончается один век и начинается следующий — в кладке, форме окон, декоративном языке.",
+        kids_label: "🐸 Детям",
+        kids: "На маршруте Иеронимус внутри башни собора стоят настоящие светофоры — чтобы люди не сталкивались на узкой витой лестнице. Зелёный — идёшь. Красный — стоишь. Самая историческая система регулировки движения в мире. На вершине вы стоите на крыше собора. Колокола зазвонят, пока вы там. Очень громко. Вы почувствуете это в груди.",
+        connector: null
+      }
+    ]
+  }
+};
+
+let currentLang = 'en';
+
+function setLang(lang) {
+  currentLang = lang;
+  document.querySelectorAll('.lang-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === lang.toUpperCase());
+  });
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = T[lang][el.dataset.i18n] || '';
+  });
+  renderStops(lang);
+}
+
+function renderStops(lang) {
+  const container = document.getElementById('stops-container');
+  const data = T[lang];
+  let html = '';
+
+  data.stops.forEach((stop, i) => {
+    html += `
+    <article class="stop">
+      <div class="stop-num">${i + 1}</div>
+      <div class="stop-content">
+        <span class="stop-name">${stop.name}</span>
+        <span class="stop-era">${stop.era}</span>
+        <p class="stop-desc">${stop.desc}</p>
+        ${stop.story ? `
+        <div class="story-box">
+          <span class="story-label">${stop.story_label}</span>
+          <p>${stop.story}</p>
+        </div>` : ''}
+        ${stop.kids ? `
+        <div class="kids-box">
+          <span class="kids-label">${stop.kids_label}</span>
+          <p>${stop.kids}</p>
+        </div>` : ''}
+      </div>
+    </article>
+    ${stop.connector ? `<div class="connector">${stop.connector}</div>` : ''}`;
+  });
+
+  container.innerHTML = html;
+}
+
+document.querySelectorAll('[data-i18n]').forEach(el => {
+  el.textContent = T.en[el.dataset.i18n] || '';
+});
+renderStops('en');
+
+// MAP
+const map = L.map('map', { zoomControl: true, scrollWheelZoom: false });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap contributors', maxZoom: 19
+}).addTo(map);
+
+const stops = [
+  { num: 1,  name: "Plaza Mayor",                     lat: 40.9648952, lng: -5.6637362 },
+  { num: 2,  name: "Casa de las Conchas",             lat: 40.9628080, lng: -5.6659111 },
+  { num: 3,  name: "University of Salamanca Façade",  lat: 40.9614073, lng: -5.6672830 },
+  { num: 4,  name: "Catedral Nueva",                  lat: 40.9606371, lng: -5.6659150 },
+  { num: 5,  name: "Catedral Vieja",                  lat: 40.9603931, lng: -5.6667020 },
+  { num: 6,  name: "Huerto de Calixto y Melibea",     lat: 40.9595363, lng: -5.6653062 },
+  { num: 7,  name: "Puente Romano",                   lat: 40.9578351, lng: -5.6701419 },
+  { num: 8,  name: "Torre del Clavero",               lat: 40.9628254, lng: -5.6632849 },
+  { num: 9,  name: "Convento de San Esteban",         lat: 40.9605556, lng: -5.6627778 },
+  { num: 10, name: "Ieronimus Tower",                 lat: 40.9604524, lng: -5.6669528 }
+];
+
+L.polyline(stops.map(s => [s.lat, s.lng]), { color: '#1a3060', weight: 3, opacity: 0.7, dashArray: '6 4' }).addTo(map);
+stops.forEach(s => {
+  const icon = L.divIcon({
+    className: '',
+    html: `<div style="width:30px;height:30px;border-radius:50%;background:#1a3060;color:#fff;font-family:'Cinzel',serif;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,40,0.45);border:2px solid #eef0f4;">${s.num}</div>`,
+    iconSize: [30,30], iconAnchor: [15,15]
+  });
+  L.marker([s.lat, s.lng], { icon }).addTo(map).bindPopup(`<strong style="font-family:serif">${s.num}. ${s.name}</strong>`);
+});
+map.fitBounds(L.latLngBounds(stops.map(s => [s.lat, s.lng])), { padding: [40, 40] });
+</script>
+</body>
+</html>

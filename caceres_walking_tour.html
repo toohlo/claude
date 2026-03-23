@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cáceres Old City — Walking Tour</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=IM+Fell+English+SC&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --parchment: #f4ede0;
+    --ink: #2a1f0e;
+    --rust: #8b3a2a;
+    --gold: #b8882a;
+    --faded: #7a6a55;
+    --border: #c9a87a;
+    --green: #3a6b3a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #d4c4aa; font-family: 'Cormorant Garamond', Georgia, serif; color: var(--ink); }
+  .page {
+    max-width: 860px; margin: 0 auto; background: var(--parchment);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    min-height: 100vh; padding: 0 0 60px; box-shadow: 0 0 60px rgba(0,0,0,0.35);
+  }
+  .header {
+    text-align: center; padding: 44px 40px 32px; border-bottom: 2px solid var(--border);
+    background: linear-gradient(to bottom, #e8d9c0, var(--parchment)); position: relative;
+  }
+  .header::before, .header::after { content: '✦ ✦ ✦'; display: block; color: var(--gold); font-size: 13px; letter-spacing: 8px; margin: 6px 0; }
+  .city-label { font-family: 'IM Fell English SC', serif; font-size: 13px; letter-spacing: 5px; color: var(--faded); text-transform: uppercase; margin-bottom: 10px; }
+  h1 { font-family: 'Cinzel', serif; font-size: 42px; font-weight: 600; color: var(--rust); line-height: 1.1; margin-bottom: 8px; text-shadow: 1px 1px 0 rgba(255,255,255,0.4); }
+  .subtitle { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 18px; color: var(--faded); font-weight: 300; }
+  .meta { margin-top: 18px; display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; font-size: 13px; color: var(--faded); letter-spacing: 1px; text-transform: uppercase; font-family: 'IM Fell English SC', serif; }
+
+  /* LANGUAGE TOGGLE */
+  .lang-toggle {
+    position: absolute; top: 20px; right: 20px;
+    display: flex; border: 1.5px solid var(--border); border-radius: 6px; overflow: hidden;
+    font-family: 'IM Fell English SC', serif; font-size: 13px; letter-spacing: 1px;
+  }
+  .lang-btn {
+    padding: 6px 14px; cursor: pointer; background: transparent; border: none;
+    color: var(--faded); transition: all 0.2s; font-family: inherit; font-size: inherit; letter-spacing: inherit;
+  }
+  .lang-btn.active { background: var(--rust); color: #fff; }
+  .lang-btn:hover:not(.active) { background: rgba(139,58,42,0.1); }
+
+  #map { width: 100%; height: 390px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); filter: sepia(30%) contrast(0.9); }
+  .legend { display: flex; gap: 24px; padding: 14px 40px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.2); flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-family: 'IM Fell English SC', serif; letter-spacing: 1px; font-size: 12px; color: var(--faded); }
+  .legend-swatch { width: 14px; height: 14px; border-radius: 2px; flex-shrink: 0; }
+  .intro { padding: 32px 52px 24px; border-bottom: 1px solid var(--border); }
+  .intro p { font-size: 18px; line-height: 1.8; color: var(--ink); font-style: italic; font-weight: 300; text-align: center; }
+  .drop-cap::first-letter { float: left; font-family: 'Cinzel', serif; font-size: 58px; line-height: 0.8; padding: 6px 10px 0 0; color: var(--rust); font-weight: 600; }
+  .stops { padding: 0 40px; }
+  .stop { display: grid; grid-template-columns: 52px 1fr; gap: 0 24px; padding: 36px 0; border-bottom: 1px dashed var(--border); }
+  .stop:last-child { border-bottom: none; }
+  .stop-num { width: 52px; height: 52px; border-radius: 50%; background: var(--rust); color: #fff; font-family: 'Cinzel', serif; font-size: 20px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 8px rgba(139,58,42,0.35); margin-top: 4px; }
+  .stop-name { font-family: 'Cinzel', serif; font-size: 20px; font-weight: 600; color: var(--rust); display: block; line-height: 1.2; }
+  .stop-era { font-family: 'IM Fell English SC', serif; font-size: 12px; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; display: block; margin: 3px 0 12px; }
+  .stop-desc { font-size: 17px; line-height: 1.8; color: var(--ink); margin-bottom: 12px; }
+  .story-box { background: rgba(184,136,42,0.08); border-left: 3px solid var(--gold); padding: 12px 16px; margin-top: 10px; border-radius: 0 4px 4px 0; }
+  .story-label { font-family: 'IM Fell English SC', serif; font-size: 11px; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; display: block; margin-bottom: 6px; }
+  .story-box p { font-size: 15.5px; line-height: 1.75; color: var(--faded); font-style: italic; }
+  .kids-box { background: rgba(58,107,58,0.07); border-left: 3px solid var(--green); padding: 12px 16px; margin-top: 10px; border-radius: 0 4px 4px 0; }
+  .kids-label { font-family: 'IM Fell English SC', serif; font-size: 11px; letter-spacing: 2px; color: var(--green); text-transform: uppercase; display: block; margin-bottom: 6px; }
+  .kids-box p { font-size: 15.5px; line-height: 1.75; color: #3a5a3a; font-style: italic; }
+  .connector { display: flex; align-items: center; gap: 10px; padding: 8px 0 2px; margin-left: 76px; font-family: 'IM Fell English SC', serif; font-size: 12px; letter-spacing: 1.5px; color: var(--faded); }
+  .connector::before { content: '↓'; font-size: 16px; color: var(--border); }
+  .footer { text-align: center; padding: 24px 40px; border-top: 2px solid var(--border); color: var(--faded); font-family: 'IM Fell English SC', serif; font-size: 12px; letter-spacing: 2px; }
+  .ornament { color: var(--gold); font-size: 18px; display: block; margin: 4px 0 8px; }
+  @media print {
+    body { background: white; }
+    .page { box-shadow: none; max-width: 100%; }
+    #map { height: 300px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .stop { page-break-inside: avoid; }
+    .story-box, .kids-box, .stop-num { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .lang-toggle { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="header">
+  <div class="lang-toggle">
+    <button class="lang-btn active" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" onclick="setLang('ru')">RU</button>
+  </div>
+  <div class="city-label" data-i18n="city_label"></div>
+  <h1>Cáceres</h1>
+  <p class="subtitle" data-i18n="subtitle"></p>
+  <div class="meta">
+    <span data-i18n="meta_time"></span>
+    <span data-i18n="meta_stops"></span>
+    <span data-i18n="meta_dist"></span>
+    <span data-i18n="meta_family"></span>
+  </div>
+</header>
+
+<div id="map"></div>
+
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-swatch" style="background:rgba(184,136,42,0.25);border-left:3px solid #b8882a;"></div>
+    <span data-i18n="legend_story"></span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch" style="background:rgba(58,107,58,0.15);border-left:3px solid #3a6b3a;"></div>
+    <span data-i18n="legend_kids"></span>
+  </div>
+</div>
+
+<section class="intro">
+  <p class="drop-cap" data-i18n="intro"></p>
+</section>
+
+<section class="stops" id="stops-container"></section>
+
+<footer class="footer">
+  <span class="ornament">❧</span>
+  <span data-i18n="footer_title"></span>
+  <br><br>
+  <em style="font-family:'Cormorant Garamond';font-style:italic;font-size:13px;letter-spacing:0;color:var(--faded);" data-i18n="footer_notes"></em>
+</footer>
+
+</div>
+
+<script>
+const T = {
+  en: {
+    city_label: "Extremadura, Spain · UNESCO World Heritage",
+    subtitle: "A Walking Tour Through the Medieval Monumental Quarter",
+    meta_time: "⏱ ~2.5–3 hours",
+    meta_stops: "📍 10 Stops",
+    meta_dist: "🥾 ~2 km",
+    meta_family: "👨‍👧 Family Friendly",
+    legend_story: "Historical Story",
+    legend_kids: "🦅 For the Kids",
+    intro: "Few cities in the world have preserved their medieval skyline as completely as Cáceres. Declared a UNESCO World Heritage Site in 1986, its monumental quarter is an extraordinary fossil of the late Middle Ages — where 30 towers still pierce the sky, white storks nest on every rooftop, and the 21st century stops abruptly at a city gate.",
+    footer_title: "Cáceres · declared UNESCO World Heritage Site in 1986",
+    footer_notes: "Practical notes: Torre de Bujaco ~€3 · Co-Cathedral ~€5 (tower included) · Golfines de Abajo ~€6 guided · Torre de las Cigüeñas ~€2 · Cáceres Museum free or low-cost. Most buildings close 2–5 pm. Cobblestones are very uneven — sturdy shoes essential. Best stork-watching: March through August.",
+    stops: [
+      {
+        name: "Plaza Mayor",
+        era: "Starting Point · 16th–18th Century Arcades",
+        desc: "Your tour begins in the beating commercial heart of Cáceres. The Plaza Mayor is a long, arcaded rectangle lined with café terraces, and despite its lively atmosphere it has witnessed cattle markets, public executions, and royal proclamations alike. From here you get your first framing view of the old city: the Arab walls, the cluster of towers rising behind them, and the Arco de la Estrella — the gate you are about to pass through. This view has changed almost nothing in five hundred years.",
+        story_label: "Local Story",
+        story: null,
+        kids_label: "🦅 Spot the Storks!",
+        kids: "Look at the tops of every tower you can see from here. Those large, messy bundles of sticks are stork nests. Cáceres has one of the largest urban white stork colonies in Europe — dozens of pairs return here every spring from Africa. They have no song; they communicate by clacking their beaks loudly. Count how many nests you can spot from this square alone.",
+        connector: "~1 min to the tower at the square's east corner"
+      },
+      {
+        name: "Torre de Bujaco",
+        era: "12th Century · Almohad Military Tower · Climbable",
+        desc: "Standing at the corner of the Plaza Mayor, this 25-metre Almohad tower is the oldest surviving structure in the city — built by the Moorish garrison in the 12th century as a watchtower over the surrounding plain. For a small fee (~€3), you can climb it, walk a section of the ancient walls, and see excavated Roman foundations in the basement that predate the tower by a thousand years. The view from the top over the Plaza Mayor is exceptional and gives a strong sense of how the city was designed to be defended from this exact vantage point.",
+        story_label: "The Djinn in the Tower",
+        story: "Local tradition holds that a djinn — a spirit — was sealed inside the tower by the Moorish builders to protect it from invaders. Anyone who circles the tower seven times at midnight on St. John's Eve will hear it whisper. Probably invented for tourists — but ask a local and watch their face.",
+        kids_label: "🦅 For the Kids",
+        kids: "Inside the tower basement, real Roman ruins are visible under your feet — walls, floors, and fragments of the Roman town of Norba Caesarina that stood here 2,000 years ago. Climbing a Moorish tower to look at Roman ruins while storks clack overhead is, objectively, a good morning.",
+        connector: "~2 min · pass through the gate in the wall"
+      },
+      {
+        name: "Arco de la Estrella",
+        era: "Gateway · Built 1726 · Passage Through Three Civilisations",
+        desc: "This wide Baroque arch — the \"Gate of the Star\" — was carved through the original Roman and Arab wall in 1726, specifically to allow the Bishop's wide carriage to pass through. Before it existed, only pedestrians squeezed through a narrow medieval gap. Step through and listen: the ambient noise of modern Spain drops away almost instantly. The cobblestones beneath you are the same ones trodden by medieval merchants, pilgrims on the ancient Via de la Plata silver road, and the soldiers of the Reconquista.",
+        story_label: "Designed to Kill",
+        story: "The arch is deliberately off-axis — it cuts through the wall at a diagonal. This was intentional: the angled entrance forced any attacking force to slow down and present their unshielded right side to defenders above. Even a gate built for a bishop was engineered to be a killing ground.",
+        kids_label: "🦅 For the Kids",
+        kids: "Stand in the middle of the arch and look up. You're inside a wall roughly 2 metres thick. The Romans built the first version of this wall. The Moors repaired it. The Christians inherited it. In 1726, someone punched a hole through it for a bishop's carriage. Three civilisations, one wall.",
+        connector: "~2 min into the monumental quarter"
+      },
+      {
+        name: "Plaza de Santa María",
+        era: "Heart of the City · Medieval–Renaissance · Game of Thrones Location",
+        desc: "This small, sun-drenched square is the true nucleus of old Cáceres — and one of the most filmed locations in Europe. HBO's Game of Thrones used it as a backdrop for King's Landing scenes, and you'll immediately understand why: the skyline of towers, palaces, and the cathedral rising over limestone cobblestones is a ready-made medieval set. Survey the square slowly and count the towers. Each represents a different noble lineage — and each was built specifically to be taller than the neighbour's. This was medieval one-upmanship in stone.",
+        story_label: "Queen Isabella's Decree",
+        story: "After the Reconquista, Queen Isabella I of Castile — alarmed by constant armed feuding between noble families — ordered all private towers demolished to equal height. The truncated towers you see are the result. The nobles obeyed, but each immediately added a heraldic crest to their stump to signal rank. The Queen won the battle; they won the argument.",
+        kids_label: "🦅 For the Kids",
+        kids: "This square appeared in Game of Thrones as the streets of King's Landing. The production team chose it because they needed a medieval city that actually looked medieval, not a film set. The entire old city of Cáceres was used across multiple seasons. See if you recognise any specific walls or archways from the show.",
+        connector: "~1 min · the cathedral faces you from the east side"
+      },
+      {
+        name: "Co-Cathedral of Santa María",
+        era: "15th–16th Century · Late Gothic · Climbable Tower",
+        desc: "The religious anchor of the city and the finest example of Gothic architecture in Extremadura. Its interior is cool and cavernous, with soaring ribbed vaults above a remarkable Renaissance altarpiece carved entirely in cedarwood by Roque Balduque. Look at the floor: it is paved with tombstones. For centuries, prominent citizens paid handsomely to be buried inside the church, literally underfoot of the congregation. Climb the tower for the best panoramic view in the old city — towers, stork nests, and terracotta rooftops laid out in every direction.",
+        story_label: "The Samson of Extremadura",
+        story: "In one chapel lies the tomb of Diego García de Paredes — a local soldier of legendary size and strength. Chronicles claim he once single-handedly held a bridge against an entire French army, using a millstone as a weapon. Whether strictly true or not, he was real, born here, and Cáceres has never stopped boasting about him.",
+        kids_label: "🦅 For the Kids",
+        kids: "You are walking over people. Every stone slab with writing on it is a gravestone. Rich families in the 15th century paid enormous sums to be buried inside the church because they believed it would help their souls get to heaven faster. The entire floor is an underground city of the dead. Watch your step — and read the names.",
+        connector: "~1 min · the palace is directly adjacent, south side of the square"
+      },
+      {
+        name: "Palacio de los Golfines de Abajo",
+        era: "15th–16th Century · Where Modern Spain Was Born",
+        desc: "Of all the palaces in Cáceres, this one carries the single most historically significant moment. It was here, on the balcony of this building, that Ferdinand and Isabella — the Catholic Monarchs — were proclaimed joint rulers of Castile and Aragon in 1475, effectively beginning the unification of Spain as a nation-state. Within two decades of standing on that balcony, they would sponsor Columbus's voyage, complete the Reconquista, and reshape the known world. The palace interior (guided tour required) preserves rooms almost unchanged from the 16th century, with remarkable painted murals, tapestries, and period furnishings.",
+        story_label: "The Golfín Family",
+        story: "The Golfines were one of the most powerful — and notoriously violent — noble dynasties of Extremadura. Their family history involves assassinations, feuds, and at least one murder inside a church. Yet they also produced royal chamberlains and military commanders, and eventually became respectable enough to host the monarchs who would shape modern Spain. Money and loyalty have always laundered reputations.",
+        kids_label: null,
+        kids: null,
+        connector: "~2 min north along Calle Amargura"
+      },
+      {
+        name: "Palacio de Carvajal & House of the Becerra",
+        era: "15th Century · Free Entry · Renaissance Manor with Moorish Tower",
+        desc: "The Palacio de Carvajal is one of the few palaces you can enter freely — today it serves as the regional tourist office, with a tranquil inner garden and a scale model of the entire old city that is extremely useful for orientation. The round Moorish tower incorporated into one corner tells you something older stood here long before the Renaissance palace was built over it. The adjacent House of the Becerra family (now the Mercedes Calles–Carlos Ballestero Foundation) houses a private art collection in an intimate setting.",
+        story_label: "Letters from the New World",
+        story: "One member of the Carvajal family became a Cardinal who negotiated with the Ottoman Sultan after the fall of Constantinople. Another reportedly corresponded with Hernán Cortés during the conquest of Mexico. These stone walls once received letters from the other side of the world describing civilisations being upended — while everything outside the window looked much as it does today.",
+        kids_label: null,
+        kids: null,
+        connector: "~4 min south to Plaza de San Jorge"
+      },
+      {
+        name: "Plaza de San Jorge & Iglesia de San Francisco Javier",
+        era: "18th Century · Jesuit Baroque",
+        desc: "The square dedicated to St. George — patron saint of Cáceres — is dominated by the exuberant Baroque façade of the Church of San Francisco Javier, built by the Jesuits in the early 18th century. Its twin towers and ornate portal are a theatrical contrast to the austere Gothic buildings surrounding it. The attached former Jesuit school houses the private collection of Mercedes Calles. In the centre of the square, a bronze St. George slaying the dragon presides over the scene with satisfying confidence.",
+        story_label: "The Jesuit Expulsion",
+        story: "The Society of Jesus arrived in Cáceres in the 17th century and built the most flamboyant church in the old city — to the irritation of the older religious orders already established here. They were eventually expelled from all Spanish territories by King Carlos III in 1767. Their church remains. What the Jesuits built, no king could unbuild.",
+        kids_label: "🦅 For the Kids",
+        kids: "Look up at the church towers. More stork nests. In spring and summer, stork chicks are visible in the nests, waiting for parents to return with fish and frogs from the nearby Tagus river valley. Now look at the statue: St. George, horse, dragon underneath getting stabbed. The dragon's expression is, objectively, understandable.",
+        connector: "~3 min west to Plaza de San Pablo"
+      },
+      {
+        name: "Torre de las Cigüeñas",
+        era: "14th–15th Century · The One Tower Isabella Could Not Touch · Climbable",
+        desc: "When Queen Isabella ordered all private towers cut to equal height, she made exactly one exception: the Torre de las Cigüeñas — the \"Tower of the Storks.\" Its owner, Diego de Cáceres Ovando, was a loyal military commander, and Isabella granted him the privilege of keeping his tower at full height as a reward for service. It is the only medieval tower in the old city still standing at its original height. Today it houses a small military museum with historic weapons, armour, and uniforms — with an excellent view from the top.",
+        story_label: "500 Years of Storks",
+        story: "The tower's name comes from the stork nests that have crowned it for centuries — a tradition so old it appears in medieval documents. White storks have nested here continuously for over 500 years, through the reigns of every Spanish monarch from Isabella to the present king. The current tenants are, genetically speaking, the great-great-great-grandchildren of storks that watched the Reconquista.",
+        kids_label: "🦅 For the Kids",
+        kids: "This tower has the best weapons collection in Cáceres — real medieval swords, armour, crossbows, and military gear. It also has the best stork nest in the city, visible up close from the top. Two things that are reliably interesting: weapons and birds. Entry is cheap and the climb is worth it.",
+        connector: "~4 min west along Callejón del Gallo"
+      },
+      {
+        name: "Palacio de las Veletas — Museo de Cáceres",
+        era: "Almohad Cistern (12th C.) · Gothic–Renaissance Palace (15th C.)",
+        desc: "Your tour ends at the most architecturally layered building in Cáceres. The Palacio de las Veletas was built over an Almohad citadel in the 15th century — but its foundations hold a secret. Descend to the basement and enter the aljibe: a vast underground cistern carved directly into rock, supported by five rows of horseshoe arches reflected in still, dark water below. It is the largest surviving medieval cistern on the Iberian Peninsula. Built by the Moors in the 12th century, it continued supplying the city for generations after the Reconquista — because engineering has no religion. The museum above holds Roman mosaics, Bronze Age warrior stelae, and fine arts including works by Miró and Picasso.",
+        story_label: "The Cistern's Afterlives",
+        story: "The aljibe was rediscovered largely by accident during 19th-century construction work. For a period afterward it was used as a wine cellar — the constant temperature and humidity proved excellent for ageing. The same chamber that sustained a Moorish garrison, then quenched Christian conquerors, then stored Spanish wine, now receives thousands of tourists annually — all equally awed by the same stone arches.",
+        kids_label: "🦅 For the Kids",
+        kids: "The cistern looks exactly like a dungeon — arched stone ceilings, dark water, echoing drips. It held enough water to supply an entire city garrison for months under siege. The horseshoe arches are the same design used in the Great Mosque of Córdoba. Stand at the railing and look at the reflection of the arches in the water below. It is the best underground room in Extremadura.",
+        connector: null
+      }
+    ]
+  },
+
+  ru: {
+    city_label: "Эстремадура, Испания · Объект Всемирного наследия ЮНЕСКО",
+    subtitle: "Пешеходная прогулка по средневековому монументальному кварталу",
+    meta_time: "⏱ ~2,5–3 часа",
+    meta_stops: "📍 10 остановок",
+    meta_dist: "🥾 ~2 км",
+    meta_family: "👨‍👧 Для всей семьи",
+    legend_story: "Историческая справка",
+    legend_kids: "🦅 Детям",
+    intro: "Мало какой город в мире сохранил средневековый силуэт так полно, как Касерес. Включённый в список Всемирного наследия ЮНЕСКО в 1986 году, его монументальный квартал — это удивительный слепок позднего Средневековья: 30 башен по-прежнему пронзают небо, белые аисты гнездятся на каждой крыше, а XXI век обрывается у городских ворот.",
+    footer_title: "Касерес · объект Всемирного наследия ЮНЕСКО с 1986 года",
+    footer_notes: "Практическая информация: башня Бухако ~€3 · Кафедральный собор ~€5 (включая башню) · Дворец Гольфинес ~€6 с гидом · Башня Ласаньяс ~€2 · Музей Касереса — бесплатно или почти бесплатно. Большинство объектов закрыты с 14:00 до 17:00. Булыжные мостовые очень неровные — нужна удобная обувь. Лучшее время для наблюдения за аистами: март–август.",
+    stops: [
+      {
+        name: "Пласа Майор",
+        era: "Начало маршрута · Аркады XVI–XVIII веков",
+        desc: "Маршрут начинается на главной торговой площади Касереса. Пласа Майор — вытянутый прямоугольник под аркадами, уставленный столиками кафе. Несмотря на нынешнюю оживлённость, здесь проходили и скотные рынки, и публичные казни, и королевские провозглашения. Отсюда открывается первый, самый цельный вид на старый город: арабские стены, щетина башен за ними и Арко де ла Эстрелья — ворота, через которые вы вот-вот пройдёте. Этот вид не изменился за пятьсот лет.",
+        story_label: "Местная легенда",
+        story: null,
+        kids_label: "🦅 Считаем аистов!",
+        kids: "Посмотрите на верхушки всех видимых отсюда башен. Большие лохматые кучи из веток — это гнёзда аистов. В Касересе одна из крупнейших городских колоний белого аиста в Европе: каждую весну сюда возвращаются из Африки десятки пар. Песни они не поют — общаются стуком клюва. Попробуйте сосчитать, сколько гнёзд видно только с этой площади.",
+        connector: "~1 минута до башни у восточного угла площади"
+      },
+      {
+        name: "Башня Бухако",
+        era: "XII век · Военная башня Альмохадов · Можно подняться",
+        desc: "Эта 25-метровая башня у угла Пласа Майор — старейшее сооружение города: мавританский гарнизон построил её в XII веке как дозорный пункт над равниной. За небольшую плату (~€3) можно подняться наверх, пройтись по участку древних стен и осмотреть в подвале раскопанные римские фундаменты, которые на тысячу лет старше самой башни. Вид сверху на Пласа Майор превосходен и даёт ясное представление о том, как была выстроена оборона города.",
+        story_label: "Джинн в башне",
+        story: "По местному преданию, мавританские строители замуровали в башне джинна — духа-хранителя, который должен был отпугивать захватчиков. Тот, кто обойдёт башню семь раз по часовой стрелке в полночь на Иванов день, услышит его шёпот. Скорее всего, легенда придумана для туристов — но спросите об этом у местного жителя и понаблюдайте за его лицом.",
+        kids_label: "🦅 Детям",
+        kids: "В подвале башни прямо под ногами видны настоящие римские руины — стены, полы, фрагменты римского города Норба Цезарина, который стоял здесь 2000 лет назад. Залезть на мавританскую башню, чтобы посмотреть на римские руины, пока над головой стучат клювами аисты — это, объективно, хорошее утро.",
+        connector: "~2 минуты · проходим через ворота в стене"
+      },
+      {
+        name: "Арко де ла Эстрелья",
+        era: "Городские ворота · Построены в 1726 году · Проход сквозь три цивилизации",
+        desc: "Эта широкая барочная арка — «Ворота Звезды» — была прорублена в исходной римско-арабской стене в 1726 году специально для того, чтобы мог проехать широкий епископский экипаж. До этого через узкую средневековую щель протискивались только пешие. Пройдите под аркой и прислушайтесь: шум современной Испании исчезает почти мгновенно. Под вашими ногами та же брусчатка, по которой шли средневековые купцы, паломники Серебряного пути и солдаты Реконкисты.",
+        story_label: "Ворота, созданные убивать",
+        story: "Арка намеренно смещена от оси — она прорезает стену по диагонали. Это было сделано специально: косой вход вынуждал атакующих замедлиться и подставить незащищённый правый бок под удары со стен. Ворота, построенные для епископа, были спроектированы как ловушка.",
+        kids_label: "🦅 Детям",
+        kids: "Встаньте посередине арки и посмотрите вверх. Вы находитесь внутри стены толщиной около двух метров. Первую версию этой стены построили римляне. Мавры её починили. Христиане унаследовали. А в 1726 году кто-то пробил в ней дыру ради епископского экипажа. Три цивилизации — одна стена.",
+        connector: "~2 минуты в глубь монументального квартала"
+      },
+      {
+        name: "Пласа де Санта Мария",
+        era: "Сердце города · Средневековье–Ренессанс · Место съёмок «Игры престолов»",
+        desc: "Эта небольшая, залитая солнцем площадь — подлинный центр старого Касереса и одно из самых снимаемых мест в Европе. Команда HBO использовала её в качестве декорации Королевской Гавани в «Игре престолов» — и вы сразу поймёте почему: силуэт башен, дворцов и собора над известняковой брусчаткой — готовый средневековый сет. Медленно оглядите площадь и сосчитайте башни. Каждая принадлежала отдельному дворянскому роду и строилась с одной целью — быть выше соседской. Средневековое соперничество, застывшее в камне.",
+        story_label: "Указ королевы Изабеллы",
+        story: "После Реконкисты королева Изабелла Кастильская — встревоженная непрекращающимися вооружёнными распрями между дворянскими родами — приказала снести верхушки всех частных башен до одинаковой высоты. Обрубленные башни, которые вы видите, — результат этого указа. Дворяне подчинились, но каждый тут же водрузил на обрубок герб своего рода. Королева выиграла сражение; они выиграли спор.",
+        kids_label: "🦅 Детям",
+        kids: "Эта площадь снималась в «Игре престолов» как улицы Королевской Гавани. Создатели сериала выбрали её потому, что им нужен был средневековый город, который выглядит по-настоящему средневековым, а не как декорация. Весь старый Касерес использовался в съёмках нескольких сезонов. Попробуйте узнать конкретные стены или арки из сериала.",
+        connector: "~1 минута · собор стоит напротив с восточной стороны"
+      },
+      {
+        name: "Кафедральный собор Санта Мария",
+        era: "XV–XVI века · Поздняя готика · Можно подняться на башню",
+        desc: "Главный религиозный памятник города и лучший образец готической архитектуры в Эстремадуре. Интерьер прохладный и просторный: высокие нервюрные своды и роскошный ренессансный алтарь, вырезанный целиком из кедрового дерева мастером Роке Бальдуке. Взгляните под ноги: пол выложен надгробными плитами. Веками состоятельные горожане платили огромные суммы за право быть погребёнными прямо в церкви — буквально под ногами прихожан. Поднимитесь на башню: лучшей панорамы старого города нет нигде — башни, аистиные гнёзда и черепичные крыши во все стороны.",
+        story_label: "Самсон Эстремадуры",
+        story: "В одной из капелл покоится Диего Гарсиа де Паредес — местный солдат легендарной силы и телосложения. Хроники утверждают, что в одиночку он удержал мост против целой французской армии, используя мельничный жернов как оружие. Правда это или нет — он был реальным человеком, родился здесь, и Касерес до сих пор им гордится.",
+        kids_label: "🦅 Детям",
+        kids: "Вы идёте по людям. Каждая каменная плита с надписью — это надгробие. Богатые семьи в XV веке платили огромные деньги за право быть похороненными в церкви: считалось, что это поможет душе быстрее попасть в рай. Весь пол — это подземный город мёртвых. Смотрите под ноги — и читайте имена.",
+        connector: "~1 минута · дворец прямо рядом, с южной стороны площади"
+      },
+      {
+        name: "Дворец Гольфинес де Абахо",
+        era: "XV–XVI века · Здесь родилась современная Испания",
+        desc: "Из всех дворцов Касереса этот хранит самый исторически значимый момент в жизни города. Именно здесь, на балконе этого здания, Фердинанд и Изабелла — Католические монархи — были провозглашены совместными правителями Кастилии и Арагона в 1475 году, что фактически положило начало объединению Испании как государства. Менее чем за два десятилетия после этого события они профинансируют экспедицию Колумба, завершат Реконкисту и перекроят карту мира. Интерьеры дворца (только с экскурсией) сохранились почти нетронутыми с XVI века: расписные стены, гобелены, старинная мебель.",
+        story_label: "Семья Гольфин",
+        story: "Гольфины были одним из самых влиятельных и печально известных своей жестокостью дворянских родов Эстремадуры. В истории семьи — убийства, феодальные распри и как минимум одно убийство прямо в церкви. Тем не менее род дал и королевских камергеров, и военных командиров и в конечном счёте стал достаточно респектабельным, чтобы принимать монархов, которые изменили облик Испании. Деньги и лояльность всегда хорошо отмывали репутацию.",
+        kids_label: null,
+        kids: null,
+        connector: "~2 минуты на север по улице Калье Амаргура"
+      },
+      {
+        name: "Дворец Карвахаль и Дом Бесерра",
+        era: "XV век · Вход бесплатный · Ренессансный дворец с мавританской башней",
+        desc: "Дворец Карвахаль — один из немногих дворцов квартала, куда можно войти бесплатно: сегодня здесь размещается региональный туристический офис с тихим внутренним садом и макетом всего старого города — очень удобным для ориентации. Круглая мавританская башня, вписанная в один из углов здания, говорит о том, что на этом месте стояло что-то куда более древнее, чем ренессансный дворец. По соседству — Дом семьи Бесерра (ныне фонд Мерседес Кальес–Карлос Бальестеро) с частной коллекцией произведений искусства.",
+        story_label: "Письма из Нового Света",
+        story: "Один из представителей рода Карвахаль стал кардиналом и вёл переговоры с османским султаном после падения Константинополя. Другой, по имеющимся сведениям, переписывался с Эрнаном Кортесом во время завоевания Мексики. Эти каменные стены некогда получали письма с другого конца земли, описывавшие крушение целых цивилизаций — тогда как снаружи окна всё выглядело примерно так же, как сегодня.",
+        kids_label: null,
+        kids: null,
+        connector: "~4 минуты на юг до площади Пласа де Сан Хорхе"
+      },
+      {
+        name: "Пласа де Сан Хорхе и церковь Сан Франсиско Хавьер",
+        era: "XVIII век · Иезуитское барокко",
+        desc: "Площадь покровителя Касереса — святого Георгия — подавляет пышным барочным фасадом церкви Сан Франсиско Хавьер, построенной иезуитами в начале XVIII века. Двойные башни и богато украшенный портал контрастируют со строгими готическими зданиями вокруг. В бывшей иезуитской школе при церкви хранится частная коллекция Мерседес Кальес. В центре площади — бронзовый святой Георгий, с нескрываемым удовлетворением поражающий дракона.",
+        story_label: "Изгнание иезуитов",
+        story: "Орден иезуитов появился в Касересе в XVII веке и построил самую пышную церковь в старом городе — к немалому раздражению старых монашеских орденов. В 1767 году король Карлос III изгнал иезуитов со всех испанских территорий. Их церковь осталась. То, что построили иезуиты, не мог снести ни один король.",
+        kids_label: "🦅 Детям",
+        kids: "Посмотрите на церковные башни. Снова аистиные гнёзда. Весной и летом в гнёздах видны птенцы, ожидающие родителей с рыбой и лягушками из долины реки Тахо. Теперь — на статую: святой Георгий, конь, дракон внизу — получает копьём. Выражение морды дракона, если вдуматься, вполне понятно.",
+        connector: "~3 минуты на запад до площади Пласа де Сан Пабло"
+      },
+      {
+        name: "Башня Ласаньяс (Torre de las Cigüeñas)",
+        era: "XIV–XV века · Единственная башня, которую Изабелла не тронула · Можно подняться",
+        desc: "Когда королева Изабелла приказала срубить верхушки всех частных башен, она сделала ровно одно исключение: башню Ласаньяс — «Башню аистов». Её хозяин, Диего де Касерес Овандо, был верным военным командиром, и в награду за службу Изабелла разрешила ему сохранить башню в исходную высоту. Это единственная средневековая башня старого города, которая стоит так, как была построена. Сегодня внутри — небольшой военный музей с историческим оружием, доспехами и мундирами; с вершины открывается отличный вид.",
+        story_label: "500 лет аистов",
+        story: "Название башне дали аистиные гнёзда, венчающие её уже много столетий — традиция настолько давняя, что упоминается в средневековых документах. Белые аисты гнездятся здесь непрерывно более 500 лет, пережив всех испанских монархов от Изабеллы до нынешнего короля. Нынешние обитатели гнёзд — в каком-то смысле праправнуки аистов, наблюдавших Реконкисту.",
+        kids_label: "🦅 Детям",
+        kids: "В этой башне лучшая коллекция оружия в Касересе: настоящие средневековые мечи, доспехи, арбалеты, снаряжение. И лучшее аистиное гнездо — его видно почти вплотную с вершины. Оружие и птицы — это всегда интересно. Вход дёшев, и подняться стоит.",
+        connector: "~4 минуты на запад по Калехон дель Гальо"
+      },
+      {
+        name: "Дворец Велетас — Музей Касереса",
+        era: "Мавританская цистерна (XII в.) · Дворец (XV в.)",
+        desc: "Маршрут завершается у самого архитектурно насыщенного здания Касереса. Дворец Велетас был построен в XV веке над альмохадской крепостью — но в его основании скрыт секрет. Спуститесь в подвал и войдите в альхибе: огромная подземная цистерна, высеченная прямо в скале, пять рядов подковообразных арок отражаются в тёмной неподвижной воде. Это крупнейшая сохранившаяся средневековая цистерна на Иберийском полуострове. Построенная маврами в XII веке, она снабжала город водой ещё долго после Реконкисты — потому что инженерные решения не имеют религии. В музее выше — римские мозаики, бронзовые стелы с воинами и произведения искусства, в том числе работы Миро и Пикассо.",
+        story_label: "Вторая жизнь цистерны",
+        story: "Альхибе был случайно обнаружен заново в ходе строительных работ в XIX веке. Какое-то время его использовали как винный погреб — постоянная температура и влажность оказались идеальными для выдержки. Один и тот же зал сначала питал водой мавританский гарнизон, потом — испанских завоевателей, потом хранил вино, а теперь каждый год принимает тысячи туристов, одинаково поражённых теми же каменными арками.",
+        kids_label: "🦅 Детям",
+        kids: "Цистерна выглядит в точности как подземелье — каменные арочные своды, тёмная вода, эхо капель. В ней хранилось достаточно воды, чтобы снабжать осаждённый гарнизон целого города на протяжении месяцев. Подковообразные арки — та же форма, что в Великой мечети Кордовы. Встаньте у ограждения и посмотрите на отражение арок в воде внизу. Это лучший подземный зал в Эстремадуре.",
+        connector: null
+      }
+    ]
+  }
+};
+
+let currentLang = 'en';
+
+function setLang(lang) {
+  currentLang = lang;
+  document.querySelectorAll('.lang-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent === lang.toUpperCase());
+  });
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = T[lang][el.dataset.i18n] || '';
+  });
+  renderStops(lang);
+}
+
+function renderStops(lang) {
+  const container = document.getElementById('stops-container');
+  const data = T[lang];
+  let html = '';
+
+  data.stops.forEach((stop, i) => {
+    html += `
+    <article class="stop">
+      <div class="stop-num">${i + 1}</div>
+      <div class="stop-content">
+        <span class="stop-name">${stop.name}</span>
+        <span class="stop-era">${stop.era}</span>
+        <p class="stop-desc">${stop.desc}</p>
+        ${stop.story ? `
+        <div class="story-box">
+          <span class="story-label">${stop.story_label}</span>
+          <p>${stop.story}</p>
+        </div>` : ''}
+        ${stop.kids ? `
+        <div class="kids-box">
+          <span class="kids-label">${stop.kids_label}</span>
+          <p>${stop.kids}</p>
+        </div>` : ''}
+      </div>
+    </article>
+    ${stop.connector ? `<div class="connector">${stop.connector}</div>` : ''}`;
+  });
+
+  container.innerHTML = html;
+}
+
+// Init
+document.querySelectorAll('[data-i18n]').forEach(el => {
+  el.textContent = T.en[el.dataset.i18n] || '';
+});
+renderStops('en');
+
+// MAP
+const map = L.map('map', { zoomControl: true, scrollWheelZoom: false });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap contributors', maxZoom: 19
+}).addTo(map);
+
+const stops = [
+  { num: 1,  name: "Plaza Mayor",                      lat: 39.4752301, lng: -6.3716263 },
+  { num: 2,  name: "Torre de Bujaco",                  lat: 39.4752112, lng: -6.3709947 },
+  { num: 3,  name: "Arco de la Estrella",              lat: 39.4749185, lng: -6.370973  },
+  { num: 4,  name: "Plaza de Santa María",             lat: 39.4745423, lng: -6.3703506 },
+  { num: 5,  name: "Co-Cathedral of Santa María",      lat: 39.4745865, lng: -6.370041  },
+  { num: 6,  name: "Palacio de los Golfines de Abajo", lat: 39.4741091, lng: -6.3701163 },
+  { num: 7,  name: "Palacio de Carvajal",              lat: 39.474777,  lng: -6.369893  },
+  { num: 8,  name: "Plaza de San Jorge",               lat: 39.4738414, lng: -6.3703184 },
+  { num: 9,  name: "Torre de las Cigüeñas",            lat: 39.4730731, lng: -6.3707968 },
+  { num: 10, name: "Palacio de las Veletas",           lat: 39.472768,  lng: -6.370102  }
+];
+
+L.polyline(stops.map(s => [s.lat, s.lng]), { color: '#8b3a2a', weight: 3, opacity: 0.7, dashArray: '6 4' }).addTo(map);
+stops.forEach(s => {
+  const icon = L.divIcon({
+    className: '',
+    html: `<div style="width:30px;height:30px;border-radius:50%;background:#8b3a2a;color:#fff;font-family:'Cinzel',serif;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.4);border:2px solid #f4ede0;">${s.num}</div>`,
+    iconSize: [30,30], iconAnchor: [15,15]
+  });
+  L.marker([s.lat, s.lng], { icon }).addTo(map).bindPopup(`<strong style="font-family:serif">${s.num}. ${s.name}</strong>`);
+});
+map.fitBounds(L.latLngBounds(stops.map(s => [s.lat, s.lng])), { padding: [40, 40] });
+</script>
+</body>
+</html>
