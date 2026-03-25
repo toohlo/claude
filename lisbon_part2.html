@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lisbon Part 2 — Belém Walking Tour</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=IM+Fell+English+SC&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --parchment: #edf4f5;
+    --ink: #0e1e22;
+    --teal: #1a6a78;
+    --gold: #8a6a18;
+    --faded: #4a7080;
+    --border: #7ab8c8;
+    --green: #2a5a3a;
+    --free: #6a4a1a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #a8ccd4; font-family: 'Cormorant Garamond', Georgia, serif; color: var(--ink); }
+  .page {
+    max-width: 860px; margin: 0 auto; background: var(--parchment);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.88' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    min-height: 100vh; padding: 0 0 60px; box-shadow: 0 0 60px rgba(0,30,40,0.4);
+  }
+  .header {
+    text-align: center; padding: 44px 40px 32px; border-bottom: 2px solid var(--border);
+    background: linear-gradient(to bottom, #c8e4ea, var(--parchment)); position: relative;
+  }
+  .header::before, .header::after { content: '✦ ✦ ✦'; display: block; color: var(--gold); font-size: 13px; letter-spacing: 8px; margin: 6px 0; }
+  .city-label { font-family: 'IM Fell English SC', serif; font-size: 13px; letter-spacing: 5px; color: var(--faded); text-transform: uppercase; margin-bottom: 10px; }
+  h1 { font-family: 'Cinzel', serif; font-size: 38px; font-weight: 600; color: var(--teal); line-height: 1.1; margin-bottom: 8px; text-shadow: 1px 1px 0 rgba(255,255,255,0.6); }
+  .subtitle { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 18px; color: var(--faded); font-weight: 300; }
+  .meta { margin-top: 18px; display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; font-size: 13px; color: var(--faded); letter-spacing: 1px; text-transform: uppercase; font-family: 'IM Fell English SC', serif; }
+  .lang-toggle { position: absolute; top: 20px; right: 20px; display: flex; border: 1.5px solid var(--border); border-radius: 6px; overflow: hidden; font-family: 'IM Fell English SC', serif; font-size: 13px; letter-spacing: 1px; }
+  .lang-btn { padding: 6px 14px; cursor: pointer; background: transparent; border: none; color: var(--faded); transition: all 0.2s; font-family: inherit; font-size: inherit; letter-spacing: inherit; }
+  .lang-btn.active { background: var(--teal); color: #fff; }
+  .lang-btn:hover:not(.active) { background: rgba(26,106,120,0.1); }
+  #map { width: 100%; height: 340px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); filter: sepia(20%) hue-rotate(155deg) contrast(0.9) brightness(1.02); }
+
+  /* Section dividers */
+  .section-header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 18px 40px 10px; border-bottom: 1px solid var(--border);
+    background: rgba(26,106,120,0.05);
+  }
+  .section-badge {
+    font-family: 'IM Fell English SC', serif; font-size: 11px; letter-spacing: 2px;
+    color: #fff; text-transform: uppercase; padding: 4px 12px; border-radius: 20px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .section-badge.morning { background: var(--teal); }
+  .section-badge.afternoon { background: var(--free); }
+  .section-desc { font-size: 14px; font-style: italic; color: var(--faded); font-weight: 300; line-height: 1.5; }
+
+  .legend { display: flex; gap: 24px; padding: 14px 40px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.3); flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-family: 'IM Fell English SC', serif; letter-spacing: 1px; font-size: 12px; color: var(--faded); }
+  .legend-swatch { width: 14px; height: 14px; border-radius: 2px; flex-shrink: 0; }
+  .intro { padding: 32px 52px 24px; border-bottom: 1px solid var(--border); }
+  .intro p { font-size: 18px; line-height: 1.8; color: var(--ink); font-style: italic; font-weight: 300; text-align: center; }
+  .drop-cap::first-letter { float: left; font-family: 'Cinzel', serif; font-size: 58px; line-height: 0.8; padding: 6px 10px 0 0; color: var(--teal); font-weight: 600; }
+  .stops { padding: 0 40px; }
+  .stop { display: grid; grid-template-columns: 52px 1fr; gap: 0 24px; padding: 36px 0; border-bottom: 1px dashed var(--border); }
+  .stop:last-child { border-bottom: none; }
+  .stop-num { width: 52px; height: 52px; border-radius: 50%; background: var(--teal); color: #fff; font-family: 'Cinzel', serif; font-size: 20px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 10px rgba(26,106,120,0.4); margin-top: 4px; }
+  .stop-num.free { background: var(--free); box-shadow: 0 2px 10px rgba(106,74,26,0.35); }
+  .stop-name { font-family: 'Cinzel', serif; font-size: 20px; font-weight: 600; color: var(--teal); display: block; line-height: 1.2; }
+  .stop-name.free { color: var(--free); }
+  .stop-era { font-family: 'IM Fell English SC', serif; font-size: 12px; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; display: block; margin: 3px 0 12px; }
+  .stop-desc { font-size: 17px; line-height: 1.8; color: var(--ink); margin-bottom: 12px; }
+  .story-box { background: rgba(26,106,120,0.07); border-left: 3px solid var(--teal); padding: 12px 16px; margin-top: 10px; border-radius: 0 4px 4px 0; }
+  .story-label { font-family: 'IM Fell English SC', serif; font-size: 11px; letter-spacing: 2px; color: var(--teal); text-transform: uppercase; display: block; margin-bottom: 6px; }
+  .story-box p { font-size: 15.5px; line-height: 1.75; color: var(--faded); font-style: italic; }
+  .kids-box { background: rgba(42,90,58,0.07); border-left: 3px solid var(--green); padding: 12px 16px; margin-top: 10px; border-radius: 0 4px 4px 0; }
+  .kids-label { font-family: 'IM Fell English SC', serif; font-size: 11px; letter-spacing: 2px; color: var(--green); text-transform: uppercase; display: block; margin-bottom: 6px; }
+  .kids-box p { font-size: 15.5px; line-height: 1.75; color: #2a4a38; font-style: italic; }
+  .free-box { background: rgba(106,74,26,0.07); border-left: 3px solid var(--free); padding: 12px 16px; margin-top: 10px; border-radius: 0 4px 4px 0; }
+  .free-label { font-family: 'IM Fell English SC', serif; font-size: 11px; letter-spacing: 2px; color: var(--free); text-transform: uppercase; display: block; margin-bottom: 6px; }
+  .free-box p { font-size: 15.5px; line-height: 1.75; color: #5a3a10; font-style: italic; }
+  .connector { display: flex; align-items: center; gap: 10px; padding: 8px 0 2px; margin-left: 76px; font-family: 'IM Fell English SC', serif; font-size: 12px; letter-spacing: 1.5px; color: var(--faded); }
+  .connector::before { content: '↓'; font-size: 16px; color: var(--border); }
+  .footer { text-align: center; padding: 24px 40px; border-top: 2px solid var(--border); color: var(--faded); font-family: 'IM Fell English SC', serif; font-size: 12px; letter-spacing: 2px; }
+  .ornament { color: var(--gold); font-size: 18px; display: block; margin: 4px 0 8px; }
+  @media print {
+    body { background: white; }
+    .page { box-shadow: none; max-width: 100%; }
+    #map { height: 260px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .stop { page-break-inside: avoid; }
+    .story-box, .kids-box, .free-box, .stop-num, .section-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .lang-toggle { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="header">
+  <div class="lang-toggle">
+    <button class="lang-btn active" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" onclick="setLang('ru')">RU</button>
+  </div>
+  <div class="city-label" data-i18n="city_label"></div>
+  <h1 data-i18n="title"></h1>
+  <p class="subtitle" data-i18n="subtitle"></p>
+  <div class="meta">
+    <span data-i18n="meta_time"></span>
+    <span data-i18n="meta_stops"></span>
+    <span data-i18n="meta_dist"></span>
+    <span data-i18n="meta_family"></span>
+  </div>
+</header>
+
+<div id="map"></div>
+
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-swatch" style="background:rgba(26,106,120,0.15);border-left:3px solid #1a6a78;"></div>
+    <span data-i18n="legend_story"></span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch" style="background:rgba(42,90,58,0.12);border-left:3px solid #2a5a3a;"></div>
+    <span data-i18n="legend_kids"></span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch" style="background:rgba(106,74,26,0.12);border-left:3px solid #6a4a1a;"></div>
+    <span data-i18n="legend_free"></span>
+  </div>
+</div>
+
+<section class="intro">
+  <p class="drop-cap" data-i18n="intro"></p>
+</section>
+
+<section class="stops" id="stops-container"></section>
+
+<footer class="footer">
+  <span class="ornament">❧</span>
+  <span data-i18n="footer_title"></span>
+  <br><br>
+  <em style="font-family:'Cormorant Garamond';font-style:italic;font-size:13px;letter-spacing:0;color:var(--faded);" data-i18n="footer_notes"></em>
+</footer>
+
+</div>
+
+<script>
+const T = {
+  en: {
+    city_label: "Belém, Lisboa · Portugal · UNESCO World Heritage",
+    title: "Lisbon: Part 2",
+    subtitle: "Belém — Morning Structure, Afternoon Freedom",
+    meta_time: "⏱ Full day",
+    meta_stops: "📍 4 + free afternoon",
+    meta_dist: "🥾 ~4 km",
+    meta_family: "👨‍👧 Family Friendly",
+    legend_story: "Historical Story",
+    legend_kids: "⛵ For the Kids",
+    legend_free: "Free Afternoon — Suggestions",
+    intro: "Belém is where Portugal launched its Age of Discoveries — the royal district 6km west of the city centre where Vasco da Gama set sail for India in 1497 and Magellan departed to circumnavigate the world in 1519. The monuments here are the most important in Portugal and among the most significant in European history. Do them properly in the morning. Then put the guide away.",
+    footer_title: "Belém · Lisboa · Take tram 15E or bus 727/728 from Praça da Figueira",
+    footer_notes: "Mosteiro dos Jerónimos ~€10 (free Sunday mornings until 14:00) · Padrão dos Descobrimentos ~€10 · Torre de Belém — CHECK current status (renovation work ongoing as of early 2026, may be partially or fully closed). Pastéis de Belém is always open from 8:00am. Lisboa Card covers most entries. Book Jerónimos online to avoid queues — it's the most visited monument in Portugal.",
+    morning_badge: "Morning · Structured",
+    morning_desc: "Three monuments, one pastry. This half of the day has an order — follow it.",
+    afternoon_badge: "Afternoon · Free",
+    afternoon_desc: "Guidebook away. These are suggestions, not instructions.",
+    stops: [
+      {
+        name: "Pastéis de Belém — Breakfast",
+        era: "Open since 1837 · The Original Pastel de Nata",
+        free: false,
+        desc: "Before anything else: breakfast at Pastéis de Belém, the bakery at Rua de Belém 84–92 that has been making the original pastel de nata to a secret recipe since 1837. The recipe was created by monks from the Jerónimos monastery next door — sold to a local sugar refinery merchant when the monastery was dissolved in 1834 — and has never been publicly disclosed. The inside of the bakery is enormous and beautifully tiled; arrive early to get a table. Order two pastéis, an espresso, and dust them with cinnamon and icing sugar from the pots on the table. This is the correct way.",
+        story_label: "The Secret Recipe",
+        story: "The recipe for the original pastéis de nata is known to only three people at any given time — a tradition maintained since 1837. All the recipes for 'pastéis de nata' sold in cafés across Portugal and the world are variations derived from the original, but the Belém recipe has never been replicated exactly. The bakery now sells around 20,000 pastéis per day. Each one is still made by hand by a team of pastry chefs in a room called the 'oficina do segredo' — the office of the secret.",
+        kids_label: "⛵ For the Kids",
+        kids: "You are eating a custard tart whose exact recipe only three people in the world know. The monks invented it, kept the recipe secret, and sold it when they were thrown out of the monastery in 1834. It has been made the same way for nearly 200 years. Ask the waiter if they know the recipe. They'll say no. They genuinely don't.",
+        connector: "~3 min walk east to the monastery entrance"
+      },
+      {
+        name: "Mosteiro dos Jerónimos",
+        era: "Built 1501–1601 · Manueline · Portugal's Greatest Monument",
+        free: false,
+        desc: "The Jerónimos Monastery is the supreme achievement of the Manueline style — a uniquely Portuguese architectural form that fused Late Gothic structure with maritime motifs: ropes, coral, armillary spheres, anchors, and exotic plants all carved in limestone with astonishing delicacy. Construction began in 1501, funded by the extraordinary wealth flowing from Vasco da Gama's sea route to India (a 5% tax on the spice trade). The south portal is the most ornate doorway in Portugal. Inside the church: the tomb of Vasco da Gama. In the cloister: two storeys of Manueline arches so intricately carved they seem to be made of living matter rather than stone. Book tickets online. The queues without a booking are serious.",
+        story_label: "The King Who Commissioned It",
+        story: "Manuel I — 'the Fortunate' — was the king who oversaw Portugal's golden age. He came to the throne in 1495, sent Vasco da Gama to India in 1497, and used the resulting spice trade monopoly to fund the most ambitious building programme in Portuguese history. The Jerónimos monastery was his Vatican — his statement to the world that Portugal, a small country at the edge of Europe, had become the centre of global commerce. He is buried here, along with Vasco da Gama and the poet Luís de Camões, whose epic poem Os Lusíadas is the founding text of Portuguese national identity.",
+        kids_label: "⛵ For the Kids",
+        kids: "Look at the carved stonework on the south portal — the big doorway on the side. Every decoration refers to the sea: ropes, anchors, coral branches, ships' rigging, and armillary spheres (the navigation instrument on the Portuguese flag). The monks who lived here prayed for the sailors who left from the beach just outside. Before Vasco da Gama set sail for India in 1497, he spent his last night in prayer in this building. He was sailing into the complete unknown — no European had ever sailed around Africa. He had no idea if the sea route even existed.",
+        connector: "~5 min walk west along the riverfront promenade"
+      },
+      {
+        name: "Padrão dos Descobrimentos",
+        era: "Built 1960 · 56 metres · Henry the Navigator Leads the Way",
+        free: false,
+        desc: "The Monument to the Discoveries rises 56 metres from the bank of the Tagus in the shape of a ship's prow, with Henry the Navigator at its leading point and 32 figures of Portuguese explorers, cartographers, astronomers, and missionaries ranked behind him on both sides. It was built in 1960 to mark the 500th anniversary of Henry's death — and its timing was deliberate: Portugal was then a dictatorship under Salazar, and the monument was a piece of nationalist propaganda celebrating an imperial past while the country's African colonies were beginning to revolt. The viewing platform at the top gives a wide view of the Tagus and Jerónimos. In front of it, a large pavement map of the world shows the routes and dates of every Portuguese discovery.",
+        story_label: "The Map on the Ground",
+        story: "The large compass rose and world map inlaid in the pavement in front of the monument was a gift from South Africa to Portugal in 1960. It shows the routes of every Portuguese explorer with the dates of their discoveries: Bartolomeu Dias rounding the Cape of Good Hope in 1488, Vasco da Gama reaching India in 1498, Pedro Álvares Cabral landing in Brazil in 1500, Magellan departing for his circumnavigation in 1519. Stand at the centre of the compass rose and turn slowly. Every direction on this map leads somewhere that a Portuguese sailor reached first.",
+        kids_label: "⛵ For the Kids",
+        kids: "Find the giant map on the pavement in front of the monument. It shows the whole world with lines showing where Portuguese explorers sailed. Find Brazil, India, Japan, and South Africa — all reached by ships that left from this exact stretch of river. Then look at the monument: Henry the Navigator is at the front of the 'ship', leaning forward. Behind him are 32 real people — navigators, cartographers, missionaries, and kings — all carved in stone. Find Vasco da Gama (second from Henry on the right side). He sailed from here to India and back in 1497–99. The journey took two years.",
+        connector: "~15 min walk west along the riverfront"
+      },
+      {
+        name: "Torre de Belém",
+        era: "Built 1516–1521 · Manueline · Last Sight of Portugal for Departing Sailors",
+        free: false,
+        desc: "The Torre de Belém stands in the Tagus on a small platform of rock — the last structure sailors saw as they left Lisbon and the first thing they recognised on their return. Built between 1516 and 1521 as a ceremonial gateway and defensive tower for the port, it is the most recognisable building in Portugal: Manueline stone lacework, carved rhinoceroses on the turrets (Afonso de Albuquerque had sent a real rhinoceros from India to King Manuel in 1515 — the first seen in Europe since Roman times), and a layered vertical silhouette that looks more like a wedding cake than a fortress. NOTE: as of early 2026, the tower was undergoing renovation and may be partially or fully closed to entry — check current status before visiting. The exterior and the platform around it are always accessible and worth seeing.",
+        story_label: "The Rhinoceros That Changed Art",
+        story: "In 1515, a live rhinoceros was sent from India to King Manuel I — the first seen in Europe since antiquity. The animal was such a sensation that Albrecht Dürer drew it from a written description without ever seeing it, producing his famous woodcut 'Rhinoceros' which became the most reproduced animal image of the 16th century. Dürer got several details wrong (the animal has a second small horn on its back in his version). But his image defined how Europeans visualised rhinos for the next 300 years. The carved rhinoceros on the tower bastion is one of the few surviving stone representations of that specific animal.",
+        kids_label: "⛵ For the Kids",
+        kids: "Look at the tower and find the carved rhinoceros on the lower bastion — the platform sticking out toward the river. That specific rhino was sculpted because in 1515, a real rhinoceros arrived in Lisbon as a gift from India. Nobody in Portugal had ever seen a rhinoceros before. The king had it fight an elephant in the palace gardens (the elephant ran away). Then he sent it as a gift to the Pope in Rome, but the ship sank and the rhino drowned. The sculptor on this tower carved it as a memorial. It's the only stone rhinoceros in Lisbon.",
+        connector: null
+      }
+    ],
+    afternoon_stops: [
+      {
+        name: "Walk Back Along the Tejo",
+        free: true,
+        desc: "The 3km riverside walk from Belém back toward the city is one of the finest urban riverside promenades in Europe. No plan. Turn around when you feel like it. Stop when something interests you. The contrast between the Age of Discovery monuments behind you and the 21st-century Lisbon riverfront ahead is the whole point. There are places to sit, places to swim if the heat demands it, and a continuous view of the Ponte 25 de Abril hanging over everything.",
+        free_label: "Afternoon Suggestion",
+        connector: null
+      },
+      {
+        name: "MAAT — Museum of Art, Architecture and Technology",
+        free: true,
+        desc: "About 2km east of Belém along the riverside, MAAT is worth it for the building alone: a rippling white ceramic-tiled structure you can walk up and over, with a rooftop terrace giving wide views of the Tagus. The adjacent old power station (Central Tejo) houses a technology museum that is genuinely fascinating — enormous turbines, generators, and industrial machinery from the early 20th century, with a few art installations scattered among them. The combination of the modern building and the historic power station works better than it has any right to.",
+        free_label: "Afternoon Suggestion",
+        connector: null
+      },
+      {
+        name: "LX Factory",
+        free: true,
+        desc: "A 19th-century industrial complex under the Ponte 25 de Abril, converted into a permanent market of independent shops, restaurants, studios, and bookshops. It is at its best on Sunday mornings when the market is active — but worth a browse on any afternoon. The Sunday flea market in particular has the kind of Portuguese ceramics, vintage furniture, and second-hand books that make good souvenirs. The restaurant Cantina das Freiras (inside the complex) is excellent and reliably cheaper than anything in the tourist centre.",
+        free_label: "Afternoon Suggestion",
+        connector: null
+      }
+    ],
+    footer_title: "Belém · Lisboa · Take tram 15E or bus 727/728 from Praça da Figueira",
+    footer_notes: "Mosteiro dos Jerónimos ~€10 (free Sunday mornings until 14:00) · Padrão dos Descobrimentos ~€10 · Torre de Belém — CHECK current status (renovation work ongoing as of early 2026, may be partially or fully closed). Pastéis de Belém is always open from 8:00am. Lisboa Card covers most entries. Book Jerónimos online to avoid queues — it's the most visited monument in Portugal."
+  },
+
+  ru: {
+    city_label: "Белен, Лиссабон · Португалия · Объект Всемирного наследия ЮНЕСКО",
+    title: "Лиссабон: Часть 2",
+    subtitle: "Белен — Утром по программе, после обеда — свобода",
+    meta_time: "⏱ Целый день",
+    meta_stops: "📍 4 + свободный вечер",
+    meta_dist: "🥾 ~4 км",
+    meta_family: "👨‍👧 Для всей семьи",
+    legend_story: "Историческая справка",
+    legend_kids: "⛵ Детям",
+    legend_free: "Свободный вечер — идеи",
+    intro: "Белен — место, откуда Португалия запустила эпоху Великих открытий. Именно из этого королевского района в 6 км к западу от центра города Васко да Гама отплыл в Индию в 1497 году, а Магеллан — в кругосветное плавание в 1519-м. Памятники здесь — важнейшие в Португалии и одни из самых значимых в европейской истории. Займитесь ими основательно с утра. Потом уберите путеводитель.",
+    footer_title: "Белен · Лиссабон · Трамвай 15E или автобус 727/728 от Праса да Фигейра",
+    footer_notes: "Монастырь Жеронимуш ~€10 (бесплатно в воскресенье утром до 14:00) · Памятник первооткрывателям ~€10 · Башня Белен — ПРОВЕРЬТЕ актуальный статус (ремонтные работы шли в начале 2026 года, возможно частичное или полное закрытие). Pastéis de Belém открыт с 8:00. Карточка Lisboa Card покрывает большинство входов. Билеты в Жеронимуш бронируйте онлайн — это самый посещаемый памятник в Португалии.",
+    morning_badge: "Утро · По программе",
+    morning_desc: "Три памятника и одна выпечка. Первая половина дня имеет порядок — следуйте ему.",
+    afternoon_badge: "После обеда · Свобода",
+    afternoon_desc: "Путеводитель убрать. Это предложения, не инструкции.",
+    stops: [
+      {
+        name: "Pastéis de Belém — Завтрак",
+        era: "Открыта с 1837 года · Оригинальный паштел де ната",
+        free: false,
+        desc: "Прежде всего — завтрак в Pastéis de Belém: пекарня по адресу Руа де Белен 84–92, выпекающая оригинальный паштел де ната по секретному рецепту с 1837 года. Рецепт создали монахи соседнего монастыря Жеронимуш и продали его местному купцу после того, как монастырь был упразднён в 1834 году. С тех пор он не был публично раскрыт. Внутри пекарня огромная и прекрасно выложена плиткой; приходите пораньше, чтобы занять столик. Закажите два паштела, эспрессо и посыпьте их корицей и сахарной пудрой из баночек на столе. Именно так правильно.",
+        story_label: "Секретный рецепт",
+        story: "Рецепт оригинальных паштелов де ната в любой момент времени известен только трём людям — традиция, соблюдаемая с 1837 года. Все рецепты «паштелов де ната», продаваемых в кафе по всей Португалии и миру, — варианты, производные от оригинала; но белемский рецепт так и не был в точности воспроизведён. Сегодня пекарня продаёт около 20 000 паштелов в день. Каждый по-прежнему лепят вручную команда кондитеров в комнате под названием «офисина ду сегреду» — мастерская секрета.",
+        kids_label: "⛵ Детям",
+        kids: "Вы едите кастардовый тарт, точный рецепт которого известен только трём людям в мире. Монахи изобрели его, хранили рецепт в тайне и продали, когда их выгнали из монастыря в 1834 году. Его делают одинаково почти 200 лет. Спросите официанта, знает ли он рецепт. Скажет, что нет. Искренне.",
+        connector: "~3 минуты на восток до входа в монастырь"
+      },
+      {
+        name: "Монастырь Жеронимуш",
+        era: "Строился в 1501–1601 гг. · Мануэлино · Главный памятник Португалии",
+        free: false,
+        desc: "Монастырь Жеронимуш — высшее достижение мануэлинского стиля: уникальная португальская архитектурная форма, слившая позднеготическую конструкцию с морскими мотивами: верёвки, кораллы, армиллярные сферы, якоря и экзотические растения — всё вырезано в известняке с поразительной тонкостью. Строительство началось в 1501 году на деньги, текущие из открытого Васко да Гамой морского пути в Индию (5% налог на торговлю пряностями). Южный портал — самые богато украшенные ворота Португалии. Внутри: гробница Васко да Гамы. В клуатре: двухъярусные мануэлинские арки, вырезанные с такой тщательностью, что кажется, будто они сделаны из живой материи, а не из камня. Бронируйте билеты онлайн — очереди без брони серьёзные.",
+        story_label: "Король, заказавший монастырь",
+        story: "Мануэл I — «Счастливый» — был королём в золотой век Португалии. Он взошёл на трон в 1495 году, отправил Васко да Гаму в Индию в 1497-м и использовал монополию на торговлю пряностями для финансирования самой амбициозной строительной программы в истории Португалии. Монастырь Жеронимуш был его Ватиканом — декларацией миру о том, что Португалия, маленькая страна на краю Европы, стала центром мировой торговли. Он похоронен здесь, рядом с Васко да Гамой и поэтом Луисом де Камоэнсом, чья эпическая поэма «Лузиады» — основополагающий текст португальской национальной идентичности.",
+        kids_label: "⛵ Детям",
+        kids: "Посмотрите на резьбу южного портала — больших боковых ворот. Каждое украшение отсылает к морю: верёвки, якоря, ветви кораллов, корабельный такелаж и армиллярные сферы (навигационный инструмент на португальском флаге). Монахи молились здесь о матросах, отплывавших с пляжа прямо за этими стенами. Перед отплытием в Индию в 1497 году Васко да Гама провёл последнюю ночь в молитве здесь. Он уходил в полную неизвестность — ни один европеец ещё не огибал Африку. Он не знал, существует ли морской путь вообще.",
+        connector: "~5 минут на запад вдоль набережной"
+      },
+      {
+        name: "Памятник первооткрывателям",
+        era: "Построен в 1960 году · 56 метров · Энрике Мореплаватель",
+        free: false,
+        desc: "Памятник первооткрывателям поднимается на 56 метров с берега Тежу в форме носа корабля: Энрике Мореплаватель ведёт его, за ним — 32 фигуры португальских мореходов, картографов, астрономов и миссионеров. Возведён в 1960 году к 500-летию смерти Энрике — и не случайно: Португалия тогда жила под диктатурой Салазара, и памятник был частью националистической пропаганды, воспевавшей имперское прошлое на фоне начинавшихся восстаний в африканских колониях. С верхней смотровой площадки — широкий вид на Тежу и Жеронимуш. Перед памятником — огромная карта мира в мостовой со всеми маршрутами португальских открытий.",
+        story_label: "Карта на мостовой",
+        story: "Большая роза ветров и карта мира в мостовой перед памятником — подарок ЮАР Португалии в 1960 году. На ней показаны маршруты всех португальских мореходов с датами: Бартоломеу Диаш огибает мыс Доброй Надежды в 1488-м, Васко да Гама достигает Индии в 1498-м, Педру Алварес Кабрал высаживается в Бразилии в 1500-м, Магеллан отплывает в кругосветное плавание в 1519-м. Встаньте в центр розы ветров и медленно обернитесь вокруг. Каждое направление на этой карте ведёт туда, куда португальский моряк добрался первым.",
+        kids_label: "⛵ Детям",
+        kids: "Найдите гигантскую карту на мостовой перед памятником. Найдите Бразилию, Индию, Японию и Южную Африку — все достигнуты кораблями, отплывавшими с этого самого участка реки. Теперь посмотрите на памятник: Энрике Мореплаватель стоит в носу «корабля», наклонившись вперёд. За ним — 32 реальных человека: штурманы, картографы, миссионеры и короли. Найдите Васко да Гаму (второй от Энрике на правом борту). Он отплыл отсюда в Индию и обратно в 1497–99 годах. Путешествие заняло два года.",
+        connector: "~15 минут на запад вдоль набережной"
+      },
+      {
+        name: "Башня Белен",
+        era: "Построена в 1516–1521 гг. · Мануэлино · Последнее, что видели уходящие моряки",
+        free: false,
+        desc: "Башня Белен стоит в Тежу на небольшом каменном выступе — последнее сооружение, которое видели моряки, покидая Лиссабон, и первое, что они узнавали при возвращении. Построена в 1516–1521 годах как парадные ворота и оборонительная башня порта: мануэлинское каменное кружево, носороги на башенках (в 1515 году Афонсу д'Альбукерки прислал живого носорога из Индии королю Мануэлу — первого в Европе со времён Рима), многоярусный силуэт, больше похожий на свадебный торт, чем на крепость. ВНИМАНИЕ: на начало 2026 года башня находилась на реставрации и могла быть частично или полностью закрыта для посещения — уточните актуальный статус. Внешний вид и набережная вокруг доступны всегда и стоят внимания.",
+        story_label: "Носорог, изменивший искусство",
+        story: "В 1515 году живой носорог был прислан из Индии королю Мануэлу I — первый в Европе со времён Античности. Животное произвело такой фурор, что Альбрехт Дюрер нарисовал его по письменному описанию, не видя своими глазами, создав знаменитую гравюру «Носорог» — самое тиражируемое изображение животного в XVI веке. Дюрер допустил несколько ошибок (на его версии у носорога есть второй маленький рог на спине). Но именно его образ определял, как европейцы представляли носорогов следующие 300 лет. Вырезанный на башне носорог — одно из немногих сохранившихся каменных изображений того конкретного животного.",
+        kids_label: "⛵ Детям",
+        kids: "Найдите на башне вырезанного носорога на нижнем бастионе — выступе над водой. Именно этот носорог был высечен потому, что в 1515 году в Лиссабоне появился настоящий носорог — подарок из Индии. В Португалии носорога не видел ещё никто и никогда. Король устроил его бой со слоном в дворцовом саду (слон убежал). Потом отправил его в подарок Папе Римскому в Рим, но корабль затонул и носорог утонул. Скульптор на этой башне вырезал его как память. Это единственный каменный носорог в Лиссабоне.",
+        connector: null
+      }
+    ],
+    afternoon_stops: [
+      {
+        name: "Прогулка обратно вдоль Тежу",
+        free: true,
+        desc: "Трёхкилометровая набережная от Белена обратно в сторону города — один из лучших городских речных променадов в Европе. Никакого плана. Разворачивайтесь когда захочется. Останавливайтесь на всё, что привлекает внимание. Контраст между памятниками эпохи открытий за спиной и набережной Лиссабона XXI века впереди — и есть суть прогулки. Есть места посидеть, в жару — искупаться, и постоянный вид на мост 25 Апреля, нависающий над всем.",
+        free_label: "Идея на вторую половину дня",
+        connector: null
+      },
+      {
+        name: "MAAT — Музей искусства, архитектуры и технологии",
+        free: true,
+        desc: "Примерно в 2 км к востоку от Белена вдоль набережной MAAT стоит посетить хотя бы ради здания: волнистое белое сооружение в керамической плитке, по которому можно подняться пешком, с террасой на крыше с широким видом на Тежу. В соседней старой электростанции (Централ Тежу) — музей технологии, подлинно интересный: огромные турбины, генераторы и промышленные механизмы начала XX века с несколькими арт-инсталляциями между ними. Сочетание современного здания и исторической электростанции работает лучше, чем должно.",
+        free_label: "Идея на вторую половину дня",
+        connector: null
+      },
+      {
+        name: "LX Factory",
+        free: true,
+        desc: "Промышленный комплекс XIX века под мостом 25 Апреля, превращённый в постоянный рынок независимых магазинов, ресторанов, студий и книжных. Лучше всего в воскресное утро, когда работает рынок, — но стоит заглянуть в любой день. Воскресная блошка особенно хороша для португальской керамики, винтажной мебели и букинистики. Ресторан Cantina das Freiras внутри комплекса — отличная кухня и стабильно дешевле всего, что есть в туристическом центре.",
+        free_label: "Идея на вторую половину дня",
+        connector: null
+      }
+    ],
+    footer_title: "Белен · Лиссабон · Трамвай 15E или автобус 727/728 от Праса да Фигейра",
+    footer_notes: "Монастырь Жеронимуш ~€10 (бесплатно в воскресенье утром до 14:00) · Памятник первооткрывателям ~€10 · Башня Белен — ПРОВЕРЬТЕ актуальный статус (ремонт в начале 2026 года). Pastéis de Belém открыт с 8:00. Карточка Lisboa Card покрывает большинство входов. Онлайн-бронирование Жеронимуша обязательно."
+  }
+};
+
+let currentLang = 'en';
+
+function setLang(lang) {
+  currentLang = lang;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.textContent === lang.toUpperCase()));
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = T[lang][el.dataset.i18n] || ''; });
+  renderStops(lang);
+}
+
+function renderStops(lang) {
+  const d = T[lang];
+  const container = document.getElementById('stops-container');
+  let html = '';
+
+  // Morning section header
+  html += `<div class="section-header">
+    <span class="section-badge morning" data-i18n="morning_badge">${d.morning_badge}</span>
+    <p class="section-desc">${d.morning_desc}</p>
+  </div>`;
+
+  d.stops.forEach((s, i) => {
+    html += `
+    <article class="stop">
+      <div class="stop-num">${i+1}</div>
+      <div class="stop-content">
+        <span class="stop-name">${s.name}</span>
+        <span class="stop-era">${s.era}</span>
+        <p class="stop-desc">${s.desc}</p>
+        ${s.story ? `<div class="story-box"><span class="story-label">${s.story_label}</span><p>${s.story}</p></div>` : ''}
+        ${s.kids ? `<div class="kids-box"><span class="kids-label">${s.kids_label}</span><p>${s.kids}</p></div>` : ''}
+      </div>
+    </article>
+    ${s.connector ? `<div class="connector">${s.connector}</div>` : ''}`;
+  });
+
+  // Afternoon section header
+  html += `<div class="section-header" style="margin-top:8px;">
+    <span class="section-badge afternoon">${d.afternoon_badge}</span>
+    <p class="section-desc">${d.afternoon_desc}</p>
+  </div>`;
+
+  d.afternoon_stops.forEach((s, i) => {
+    html += `
+    <article class="stop">
+      <div class="stop-num free">${String.fromCharCode(65+i)}</div>
+      <div class="stop-content">
+        <span class="stop-name free">${s.name}</span>
+        <div class="free-box"><span class="free-label">${s.free_label}</span><p>${s.desc}</p></div>
+      </div>
+    </article>`;
+  });
+
+  container.innerHTML = html;
+}
+
+document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = T.en[el.dataset.i18n] || ''; });
+renderStops('en');
+
+const map = L.map('map', { zoomControl: true, scrollWheelZoom: false });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 19 }).addTo(map);
+const stops = [
+  { num:'P', name:"Pastéis de Belém",              lat:38.6975105, lng:-9.2032276, free:false },
+  { num:'J', name:"Mosteiro dos Jerónimos",         lat:38.6978909, lng:-9.2067039, free:false },
+  { num:'D', name:"Padrão dos Descobrimentos",      lat:38.6935973, lng:-9.2057115, free:false },
+  { num:'T', name:"Torre de Belém",                 lat:38.6915837, lng:-9.2159773, free:false },
+  { num:'M', name:"MAAT",                           lat:38.6958561, lng:-9.1933120, free:true  },
+  { num:'L', name:"LX Factory",                     lat:38.7013000, lng:-9.1780000, free:true  }
+];
+const mainCoords = stops.filter(s=>!s.free).map(s=>[s.lat,s.lng]);
+L.polyline(mainCoords,{color:'#1a6a78',weight:3,opacity:0.75,dashArray:'6 4'}).addTo(map);
+stops.forEach(s=>{
+  const col = s.free ? '#6a4a1a' : '#1a6a78';
+  const icon=L.divIcon({className:'',html:`<div style="width:30px;height:30px;border-radius:50%;background:${col};color:#fff;font-family:'Cinzel',serif;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,60,80,0.4);border:2px solid #edf4f5;">${s.num}</div>`,iconSize:[30,30],iconAnchor:[15,15]});
+  L.marker([s.lat,s.lng],{icon}).addTo(map).bindPopup(`<strong style="font-family:serif">${s.name}</strong>`);
+});
+map.fitBounds(L.latLngBounds(stops.map(s=>[s.lat,s.lng])),{padding:[40,40]});
+</script>
+</body>
+</html>

@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lisbon Part 1 — Alfama & Baixa Walking Tour</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=IM+Fell+English+SC&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --parchment: #edf4f5;
+    --ink: #0e1e22;
+    --teal: #1a6a78;
+    --gold: #8a6a18;
+    --faded: #4a7080;
+    --border: #7ab8c8;
+    --green: #2a5a3a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #a8ccd4; font-family: 'Cormorant Garamond', Georgia, serif; color: var(--ink); }
+  .page {
+    max-width: 860px; margin: 0 auto; background: var(--parchment);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.88' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    min-height: 100vh; padding: 0 0 60px; box-shadow: 0 0 60px rgba(0,30,40,0.4);
+  }
+  .header {
+    text-align: center; padding: 44px 40px 32px; border-bottom: 2px solid var(--border);
+    background: linear-gradient(to bottom, #c8e4ea, var(--parchment)); position: relative;
+  }
+  .header::before, .header::after { content: '✦ ✦ ✦'; display: block; color: var(--gold); font-size: 13px; letter-spacing: 8px; margin: 6px 0; }
+  .city-label { font-family: 'IM Fell English SC', serif; font-size: 13px; letter-spacing: 5px; color: var(--faded); text-transform: uppercase; margin-bottom: 10px; }
+  h1 { font-family: 'Cinzel', serif; font-size: 38px; font-weight: 600; color: var(--teal); line-height: 1.1; margin-bottom: 8px; text-shadow: 1px 1px 0 rgba(255,255,255,0.6); }
+  .subtitle { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 18px; color: var(--faded); font-weight: 300; }
+  .meta { margin-top: 18px; display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; font-size: 13px; color: var(--faded); letter-spacing: 1px; text-transform: uppercase; font-family: 'IM Fell English SC', serif; }
+  .lang-toggle { position: absolute; top: 20px; right: 20px; display: flex; border: 1.5px solid var(--border); border-radius: 6px; overflow: hidden; font-family: 'IM Fell English SC', serif; font-size: 13px; letter-spacing: 1px; }
+  .lang-btn { padding: 6px 14px; cursor: pointer; background: transparent; border: none; color: var(--faded); transition: all 0.2s; font-family: inherit; font-size: inherit; letter-spacing: inherit; }
+  .lang-btn.active { background: var(--teal); color: #fff; }
+  .lang-btn:hover:not(.active) { background: rgba(26,106,120,0.1); }
+  #map { width: 100%; height: 360px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); filter: sepia(20%) hue-rotate(155deg) contrast(0.9) brightness(1.02); }
+  .legend { display: flex; gap: 24px; padding: 14px 40px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.3); flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-family: 'IM Fell English SC', serif; letter-spacing: 1px; font-size: 12px; color: var(--faded); }
+  .legend-swatch { width: 14px; height: 14px; border-radius: 2px; flex-shrink: 0; }
+  .intro { padding: 32px 52px 24px; border-bottom: 1px solid var(--border); }
+  .intro p { font-size: 18px; line-height: 1.8; color: var(--ink); font-style: italic; font-weight: 300; text-align: center; }
+  .drop-cap::first-letter { float: left; font-family: 'Cinzel', serif; font-size: 58px; line-height: 0.8; padding: 6px 10px 0 0; color: var(--teal); font-weight: 600; }
+  .stops { padding: 0 40px; }
+  .stop { display: grid; grid-template-columns: 52px 1fr; gap: 0 24px; padding: 36px 0; border-bottom: 1px dashed var(--border); }
+  .stop:last-child { border-bottom: none; }
+  .stop-num { width: 52px; height: 52px; border-radius: 50%; background: var(--teal); color: #fff; font-family: 'Cinzel', serif; font-size: 20px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 10px rgba(26,106,120,0.4); margin-top: 4px; }
+  .stop-name { font-family: 'Cinzel', serif; font-size: 20px; font-weight: 600; color: var(--teal); display: block; line-height: 1.2; }
+  .stop-era { font-family: 'IM Fell English SC', serif; font-size: 12px; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; display: block; margin: 3px 0 12px; }
+  .stop-desc { font-size: 17px; line-height: 1.8; color: var(--ink); margin-bottom: 12px; }
+  .story-box { background: rgba(26,106,120,0.07); border-left: 3px solid var(--teal); padding: 12px 16px; margin-top: 10px; border-radius: 0 4px 4px 0; }
+  .story-label { font-family: 'IM Fell English SC', serif; font-size: 11px; letter-spacing: 2px; color: var(--teal); text-transform: uppercase; display: block; margin-bottom: 6px; }
+  .story-box p { font-size: 15.5px; line-height: 1.75; color: var(--faded); font-style: italic; }
+  .kids-box { background: rgba(42,90,58,0.07); border-left: 3px solid var(--green); padding: 12px 16px; margin-top: 10px; border-radius: 0 4px 4px 0; }
+  .kids-label { font-family: 'IM Fell English SC', serif; font-size: 11px; letter-spacing: 2px; color: var(--green); text-transform: uppercase; display: block; margin-bottom: 6px; }
+  .kids-box p { font-size: 15.5px; line-height: 1.75; color: #2a4a38; font-style: italic; }
+  .connector { display: flex; align-items: center; gap: 10px; padding: 8px 0 2px; margin-left: 76px; font-family: 'IM Fell English SC', serif; font-size: 12px; letter-spacing: 1.5px; color: var(--faded); }
+  .connector::before { content: '↓'; font-size: 16px; color: var(--border); }
+  .evening-box { background: rgba(26,106,120,0.06); border: 1px solid var(--border); padding: 20px 24px; margin: 8px 0 0 76px; border-radius: 4px; }
+  .evening-box strong { font-family: 'IM Fell English SC', serif; letter-spacing: 1px; color: var(--teal); font-style: normal; display: block; margin-bottom: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; }
+  .evening-box p { font-size: 16px; line-height: 1.75; color: var(--ink); font-style: italic; font-weight: 300; }
+  .footer { text-align: center; padding: 24px 40px; border-top: 2px solid var(--border); color: var(--faded); font-family: 'IM Fell English SC', serif; font-size: 12px; letter-spacing: 2px; }
+  .ornament { color: var(--gold); font-size: 18px; display: block; margin: 4px 0 8px; }
+  @media print {
+    body { background: white; }
+    .page { box-shadow: none; max-width: 100%; }
+    #map { height: 280px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .stop { page-break-inside: avoid; }
+    .story-box, .kids-box, .stop-num, .evening-box { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .lang-toggle { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="header">
+  <div class="lang-toggle">
+    <button class="lang-btn active" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" onclick="setLang('ru')">RU</button>
+  </div>
+  <div class="city-label" data-i18n="city_label"></div>
+  <h1 data-i18n="title"></h1>
+  <p class="subtitle" data-i18n="subtitle"></p>
+  <div class="meta">
+    <span data-i18n="meta_time"></span>
+    <span data-i18n="meta_stops"></span>
+    <span data-i18n="meta_dist"></span>
+    <span data-i18n="meta_family"></span>
+  </div>
+</header>
+
+<div id="map"></div>
+
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-swatch" style="background:rgba(26,106,120,0.15);border-left:3px solid #1a6a78;"></div>
+    <span data-i18n="legend_story"></span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-swatch" style="background:rgba(42,90,58,0.12);border-left:3px solid #2a5a3a;"></div>
+    <span data-i18n="legend_kids"></span>
+  </div>
+</div>
+
+<section class="intro">
+  <p class="drop-cap" data-i18n="intro"></p>
+</section>
+
+<section class="stops" id="stops-container"></section>
+
+<footer class="footer">
+  <span class="ornament">❧</span>
+  <span data-i18n="footer_title"></span>
+  <br><br>
+  <em style="font-family:'Cormorant Garamond';font-style:italic;font-size:13px;letter-spacing:0;color:var(--faded);" data-i18n="footer_notes"></em>
+</footer>
+
+</div>
+
+<script>
+const T = {
+  en: {
+    city_label: "Lisboa, Portugal · UNESCO World Heritage",
+    title: "Lisbon: Part 1",
+    subtitle: "Alfama & Baixa — The Old City from River to Castle",
+    meta_time: "⏱ Full day",
+    meta_stops: "📍 9 Stops",
+    meta_dist: "🥾 ~3.5 km",
+    meta_family: "👨‍👧 Family Friendly",
+    legend_story: "Historical Story",
+    legend_kids: "🚃 For the Kids",
+    intro: "Alfama is the oldest district of Lisbon and one of the oldest continuously inhabited urban quarters in Europe — a labyrinth of whitewashed walls, terracotta rooftops, azulejo-tiled facades, and impossibly steep alleyways that survived the 1755 earthquake which destroyed most of the rest of the city. Below it, the Baixa is the elegant Pombaline grid rebuilt from the rubble. Between them, these two districts tell the entire story of Lisbon.",
+    footer_title: "Lisboa · Capital of Portugal · Founded c. 1200 BC",
+    footer_notes: "Castelo de São Jorge ~€15 · Sé Cathedral ~€8 · São Vicente de Fora ~€5 · Museu do Fado ~€5 · Elevador de Santa Justa ~€5.30 · Arco da Rua Augusta tower ~€3. Lisboa Card covers most entries + all public transport (24h ~€22, 48h ~€37). Wear flat shoes — the hills and cobblestones are serious. Tram 28 runs through Alfama but is extremely crowded; walking is faster and more rewarding. Book a fado dinner in advance.",
+    stops: [
+      {
+        name: "Praça do Comércio",
+        era: "Starting Point · Built 1755–1775 · Gateway to the City",
+        desc: "Begin at the edge of the Tagus river, where Lisbon meets the sea it once conquered. The Praça do Comércio — Terreiro do Paço to locals — is an immense yellow-arcaded square open on one side to the river, and the grandest statement of the Pombaline city rebuilt after the catastrophic 1755 earthquake. The equestrian statue of King José I at its centre was the first major bronze casting in Portugal. Stand at the river's edge and look south: across the Tagus, the Cristo Rei statue and the 25 de Abril suspension bridge frame a view that looks uncannily like San Francisco. The bridge was in fact designed by the same American engineers.",
+        story_label: "The Earthquake That Rebuilt a City",
+        story: "On the morning of 1 November 1755, an earthquake of estimated magnitude 8.5–9.0 struck Lisbon, followed by a tsunami and fires that burned for six days. Between 30,000 and 60,000 people died. The city was almost entirely destroyed. The Marquis of Pombal — the king's chief minister — organised the reconstruction with extraordinary efficiency: he famously responded to the disaster by saying 'bury the dead and feed the living.' The grid of streets you will walk through today, the uniformly designed buildings, the width of the avenues — all of it is Pombal's rational, Enlightenment response to chaos.",
+        kids_label: "🚃 For the Kids",
+        kids: "Look at the river in front of you. Now look at the bridge in the distance — it's orange, it's a suspension bridge, and it looks almost exactly like the Golden Gate Bridge in San Francisco. That's not a coincidence: it was designed by the same American company in the 1960s. It was even called the Salazar Bridge until the 1974 revolution renamed it the 25 de Abril Bridge. The Cristo Rei statue on the far bank was inspired by the Christ the Redeemer statue in Rio de Janeiro.",
+        connector: "~2 min · walk north through the arch"
+      },
+      {
+        name: "Arco da Rua Augusta",
+        era: "Completed 1873 · Triumphal Arch · Climbable",
+        desc: "The great triumphal arch connecting the Praça do Comércio to the Baixa was designed immediately after the 1755 earthquake but not completed until 1873 — 118 years of construction. Its rooftop platform offers a panoramic view over the Praça do Comércio, the Tagus, and the hillside districts above — the closest thing to a helicopter view of central Lisbon for a very small entrance fee. The figures on top represent Glory crowning Valour and Genius; the statues in the niches are the Marquis of Pombal and Vasco da Gama.",
+        story_label: "118 Years to Finish an Arch",
+        story: "The arch was designed by the architect Eugénio dos Santos in 1755, immediately after the earthquake. Construction started, stopped, restarted, was argued over, redesigned, and finally completed by a different architect in 1873. The clock on the facade was added even later. This is normal for Lisbon: the city builds at its own pace, layering centuries into single structures. The arch took longer to build than the United States has existed as a country.",
+        kids_label: "🚃 For the Kids",
+        kids: "Pay the small fee and go up to the roof of the arch. You are standing on top of a gate that is 30 metres high. On one side: the huge yellow square and the river. On the other: the long straight street of Rua Augusta disappearing into the city. The Romans invented triumphal arches to celebrate military victories — this one celebrates rebuilding a city after an earthquake. Which is arguably more impressive.",
+        connector: "~8 min walk north-east along Rua da Conceição"
+      },
+      {
+        name: "Elevador de Santa Justa",
+        era: "Built 1902 · Neo-Gothic Iron Lift · Gustave Eiffel's Pupil",
+        desc: "This extraordinary cast-iron elevator rises 45 metres from the Baixa to the Carmo district above — built in 1902 by Raul Mesnier du Ponsard, a student of Gustave Eiffel. Its neo-Gothic decoration is remarkable for a piece of urban infrastructure: latticed ironwork, pointed arches, and an observation platform at the top with a walkway connecting to the Carmo convent ruins. The queues can be long; if they are, skip the lift and take the narrow stairs beside it to the top platform — the view over the Baixa rooftops and across to the castle hill is the same.",
+        story_label: "A City of Elevators",
+        story: "Lisbon is so hilly that it developed an entire culture of mechanical assistance: funiculars (elevadores), trams, and this vertical lift. The Santa Justa is the only remaining vertical elevator; the funiculars on the hills of Bica, Glória, and Lavra are still operating. They were all built in the late 19th century when Lisbon was modernising rapidly, and they turned impossible gradients into commuter routes. The same hills that defended the city for centuries became its greatest practical problem the moment people stopped walking everywhere.",
+        kids_label: "🚃 For the Kids",
+        kids: "This elevator was built in 1902 and it still works using the same mechanical system — a counterweight balances the car so it doesn't need as much energy to go up and down. From the top walkway you can look down at the Baixa streets and see exactly how flat the grid is compared to the hills on either side. Lisbon is built on seven hills — from up here you can count them. At the top there's also the shell of the Carmo convent, which was destroyed in the 1755 earthquake and never fully rebuilt. You can see it open to the sky like a roofless cathedral.",
+        connector: "~12 min on foot south-east and up into Alfama"
+      },
+      {
+        name: "Sé de Lisboa — The Cathedral",
+        era: "Founded 1147 · Romanesque Fortress-Church",
+        desc: "The Sé is the oldest church in Lisbon and one of the oldest in Portugal — founded in 1147 immediately after Afonso Henriques captured the city from the Moors, on the site of the main mosque. Its twin-towered Romanesque facade looks more like a fortress than a church, which was entirely intentional: this was a statement of Christian conquest, built to be visible from the river. Tram 28 passes directly in front of it — the photograph of the yellow tram against the Romanesque towers is one of the most reproduced images of Lisbon. The interior is austere and ancient; the Gothic cloister contains excavated Moorish and Roman ruins beneath the medieval stonework.",
+        story_label: "The First Bishop and the Crusaders",
+        story: "Afonso Henriques captured Lisbon from the Moors in 1147 with the military help of a fleet of Northern European Crusaders who were passing on their way to the Holy Land. As payment, he gave them permission to sack the city. The first Bishop of Lisbon was Gilbert of Hastings — an Englishman. The second was also English. The founding of Portugal as a kingdom was, in part, a joint Portuguese-English military operation — a partnership that later became the oldest active alliance in the world, still technically in force between Portugal and the United Kingdom today.",
+        kids_label: "🚃 For the Kids",
+        kids: "Look at the front of the cathedral: it has towers, thick walls, and looks like a castle. That's deliberate. When King Afonso captured Lisbon in 1147, he wanted to build something that would tell everyone who looked at it from the river: this city belongs to Christians now. The tram line you see running in front of the cathedral was built in 1901 and has been running ever since — the yellow trams of Lisbon are older than most people's grandparents.",
+        connector: "~5 min walk uphill into Alfama"
+      },
+      {
+        name: "Miradouro de Santa Luzia",
+        era: "Viewpoint · Azulejo Panels · Vine-Covered Pergola",
+        desc: "The first and most romantic of Alfama's miradouros — a terraced viewpoint decorated with two large azulejo tile panels depicting pre-earthquake Lisbon and the naval Battle of Santarém, framed by bougainvillea and shaded by a vine pergola. The view is over the rooftops of Alfama and the Tagus — terracotta tiles, white walls, TV aerials, and the river glittering below. This is exactly the view that has appeared on ten thousand postcards. Sit for five minutes. This is what Lisbon looks like.",
+        story_label: "Azulejos — Portugal's Skin",
+        story: "The blue-and-white azulejo tiles that cover church facades, station walls, garden benches, and viewpoint panels across Portugal are not merely decorative — they function as the country's visual memory. The word comes from the Arabic 'al-zulaij' (polished stone), a reminder that this tradition arrived with the Moors. The large panels here depict Lisbon as it was before 1755 — a city that no longer exists. The tiles are one of the few ways you can see it. Lisbon tiles are currently being stolen at an alarming rate by collectors; some of the panels around the city are replicas protecting the originals stored safely elsewhere.",
+        kids_label: "🚃 For the Kids",
+        kids: "Look at the large blue-and-white tile pictures on the walls here. The one on the left shows Lisbon as it looked before the 1755 earthquake — a completely different city. Find the big square by the river in the tile picture: that's the same Praça do Comércio you started at this morning, but showing the royal palace that used to be there before the earthquake destroyed it. The tiles are a photograph of a city that was erased.",
+        connector: "~3 min · continue along the terrace to the next viewpoint"
+      },
+      {
+        name: "Miradouro das Portas do Sol",
+        era: "Viewpoint · 'Gates of the Sun' · Heart of Alfama",
+        desc: "Thirty seconds further along the ridge, the Portas do Sol — Gates of the Sun — is a wider, more open viewpoint with a statue of São Vicente, Lisbon's patron saint, holding a boat with two ravens (the symbol of the city). The view extends further east than Santa Luzia, taking in more of Alfama and the river bend. This is a good moment to look down into the neighbourhood below and decide whether to descend into its alleyways — which reward wandering — or follow the ridge toward São Vicente de Fora. The café here is perfectly positioned for a coffee.",
+        story_label: "The Saint and the Ravens",
+        story: "São Vicente, a 3rd-century martyr from Zaragoza, became Lisbon's patron saint after his relics were brought here by ship in 1173. According to legend, two ravens accompanied the ship throughout its voyage and guarded the relics — which is why Lisbon's coat of arms shows a ship with two ravens. The birds have been the city's emblem ever since. The relics were housed in São Vicente de Fora, the church you are about to visit, until they mysteriously disappeared — possibly during the Napoleonic invasion, possibly earlier. Nobody knows where they are.",
+        kids_label: "🚃 For the Kids",
+        kids: "The statue here shows São Vicente — the patron saint of Lisbon — holding a small boat with two ravens on it. Those ravens are on the city's coat of arms and flag. According to the legend, when a ship carrying the saint's bones arrived in Lisbon harbour in 1173, two ravens flew with it the whole way from southern Portugal, sat on the boat during the whole journey, and refused to leave even after the ship docked. The city adopted them as its symbol. Look for ravens on signs, logos, and tiles as you walk around Alfama.",
+        connector: "~8 min walk north-east along the ridge"
+      },
+      {
+        name: "São Vicente de Fora",
+        era: "Completed 1629 · Mannerist · Royal Pantheon · Stunning Rooftop",
+        desc: "One of the most underrated churches in Lisbon. The church of São Vicente de Fora — 'Saint Vincent Outside the Walls,' referring to its position beyond the medieval city boundary — was built between 1582 and 1629 in the austere Italian Mannerist style under Spanish Hapsburg rule. Its most extraordinary feature is the cloister: an entire sequence of rooms lined floor-to-ceiling with azulejo tile panels depicting the Fables of La Fontaine, plus scenes from the conquest of Ceuta and the life of São Vicente — tens of thousands of tiles telling stories you could spend an hour reading. From the rooftop, the view over Alfama and the Tagus is arguably the finest in Lisbon.",
+        story_label: "The Royal Pantheon Next Door",
+        story: "The former refectory of São Vicente de Fora serves as the pantheon of the House of Bragança — the royal dynasty that ruled Portugal from 1640 until the republic was established in 1910. All the kings and queens of Portugal from João IV to Manuel II are buried here in marble sarcophagi. The last king of Portugal, Manuel II, was buried here in 1932 after dying in exile in England. His epitaph describes him as 'the Patriot King.' He was 42 when he died, having been deposed at 20.",
+        kids_label: "🚃 For the Kids",
+        kids: "The cloisters of this church are covered in thousands of blue-and-white tiles telling stories — including all of Aesop's Fables. Find the tile showing the fox and the grapes (the fox can't reach them and says they're probably sour anyway). Find the frog who wanted to be as big as an ox and blew himself up until he burst. These are 300-year-old comic strips, in tiles, on the walls of a church. Also go up to the rooftop — it's the best free view in Alfama.",
+        connector: "~15 min walk back downhill toward the river to the museum"
+      },
+      {
+        name: "Museu do Fado",
+        era: "Near the River · Alfama · The Soul of Portugal",
+        desc: "Fado — literally 'fate' — is Portugal's national music: a melancholic, soulful song form born in the working-class taverns of Alfama in the early 19th century, combining Arabic, African, and Portuguese musical traditions into something that sounds like nothing else on earth. The Museu do Fado traces its entire history through instruments, photographs, recordings, and video, and its free audio guide lets you listen to the greatest fadistas of the 20th century — Amália Rodrigues, Carlos do Carmo, Mariza — as you walk through the exhibition. Visit this before your fado dinner this evening. It will make the experience incomparably richer.",
+        story_label: "Saudade",
+        story: "Fado's defining emotional register is saudade — a Portuguese word with no precise English equivalent, describing a melancholic longing for something absent: a person, a place, a time, an imagined future. It is simultaneously nostalgic and forward-looking, content and mournful. Some historians trace it to the experience of the Age of Discoveries — the grief of families watching ships leave for years-long voyages with uncertain return. Others say it is simply Portuguese. Either way, a fado performance — a single singer, a Portuguese guitar, and a viola baixo, in a darkened room — is one of the most emotionally direct musical experiences you are likely to have.",
+        kids_label: "🚃 For the Kids",
+        kids: "Put on the audio guide headphones and listen to Amália Rodrigues, the greatest fado singer of the 20th century, who died in 1999. When she died, Portugal declared three days of national mourning — like when a president dies. She was a singer from Alfama who became the most famous Portuguese person of her century. Tonight you'll hear live fado. This museum will tell you what you're listening to and why it sounds the way it does.",
+        connector: "~20 min walk uphill west to the castle, or take a tuk-tuk"
+      },
+      {
+        name: "Castelo de São Jorge",
+        era: "Moorish Origins · Christian Conquest 1147 · Peacocks",
+        desc: "The Castelo de São Jorge sits on the highest hill of Lisbon, dominating the city from every angle. The site has been fortified since at least the 2nd century BC — Phoenicians, Romans, Visigoths, and Moors all held this hill before the Portuguese. The current castle was built by the Moors and significantly expanded by the Portuguese after the 1147 conquest. Inside: 11 towers, walkable battlements, sweeping 360-degree views over the city and the Tagus, a small but excellent museum with finds from every layer of occupation, and a population of free-roaming peacocks that regard tourists with magnificent indifference. End your day here for the sunset.",
+        story_label: "The Siege of 1147",
+        story: "When Afonso Henriques besieged Lisbon in 1147, the Moorish garrison held this castle for four months. The Northern European Crusaders who helped breach the walls demanded the right to loot the city as payment. The Portuguese agreed — then tried to stop the looting once it started, and failed. The first bishop Gilbert of Hastings reportedly died in a street fight with his own crusader allies over the plunder. The conquest of Lisbon was a chaotic, violent affair dressed up in crusading language. But the castle changed hands, and that was what mattered.",
+        kids_label: "🚃 For the Kids",
+        kids: "Walk the full circuit of the castle walls. You are standing on the same walls that Moorish soldiers defended in 1147 during a four-month siege. Count the towers — there are 11. Find the peacocks. They live inside the castle permanently and have for decades; in spring the males display their full tail feathers. The museum basement shows the layers of the hill: Phoenician, Roman, Visigoth, Moorish, and Portuguese artefacts, all from exactly where you're standing. Every civilisation in Lisbon's history held this hill.",
+        connector: null
+      }
+    ],
+    evening_label: "🎵 This Evening — Fado in Alfama",
+    evening_text: "Book a fado dinner in advance — the restaurants on and around Rua do Escolas Gerais and Rua de São João da Praça are the real thing, not tourist shows. A proper fado house serves simple Portuguese food (bacalhau, caldo verde) while performers take turns on a small stage. The music starts late — rarely before 9pm. Conversation is expected to stop when someone sings. If the singer is good, the room goes completely silent. That silence is the point."
+  },
+
+  ru: {
+    city_label: "Лиссабон, Португалия · Объект Всемирного наследия ЮНЕСКО",
+    title: "Лиссабон: Часть 1",
+    subtitle: "Алфама и Байша — Старый город от реки до замка",
+    meta_time: "⏱ Целый день",
+    meta_stops: "📍 9 остановок",
+    meta_dist: "🥾 ~3,5 км",
+    meta_family: "👨‍👧 Для всей семьи",
+    legend_story: "Историческая справка",
+    legend_kids: "🚃 Детям",
+    intro: "Алфама — старейший район Лиссабона и один из старейших непрерывно заселённых кварталов Европы: лабиринт беленых стен, терракотовых крыш, фасадов с азулежу и немыслимо крутых переулков, уцелевших при землетрясении 1755 года, которое разрушило почти весь остальной город. Ниже — элегантная регулярная сетка Байши, отстроенной из руин. Вместе эти два квартала рассказывают историю Лиссабона целиком.",
+    footer_title: "Лиссабон · Столица Португалии · Основан около 1200 г. до н.э.",
+    footer_notes: "Замок Сан-Жоржи ~€15 · Кафедральный собор ~€8 · Сан-Висенте де Фора ~€5 · Музей фаду ~€5 · Лифт Санта-Жуста ~€5,30 · Башня Арко да Руа Аугушта ~€3. Карточка Lisboa Card покрывает большинство входов + весь общественный транспорт (24ч ~€22, 48ч ~€37). Одевайте удобную обувь на плоской подошве — холмы и брусчатка серьёзны. Трамвай 28 ходит через Алфаму, но чрезвычайно переполнен; пешком быстрее и интереснее. Столик в ресторане фаду бронируйте заранее.",
+    stops: [
+      {
+        name: "Праса ду Комерсиу",
+        era: "Начало маршрута · Отстроена в 1755–1775 гг. · Ворота города",
+        desc: "Начните на берегу Тежу, там, где Лиссабон встречается с морем, которое он когда-то завоевал. Праса ду Комерсиу — для местных Терейру-ду-Пасу — огромная жёлтая площадь под аркадами, открытая с одной стороны к реке: главное высказывание города Помбала, восстановленного после катастрофического землетрясения 1755 года. Конная статуя короля Жозе I в центре — первая крупная бронзовая отливка в Португалии. Встаньте у края набережной и посмотрите на юг: на другом берегу Тежу статуя Христа-Царя и подвесной мост 25 Апреля создают вид, подозрительно напоминающий Сан-Франциско. Мост, кстати, проектировала та же американская компания.",
+        story_label: "Землетрясение, перестроившее город",
+        story: "Утром 1 ноября 1755 года землетрясение магнитудой 8,5–9,0 сотрясло Лиссабон. За ним последовали цунами и пожары, горевшие шесть дней. Погибло от 30 000 до 60 000 человек. Город был уничтожен почти полностью. Маркиз Помбал — первый министр короля — организовал восстановление с поразительной эффективностью. Его знаменитый ответ на катастрофу: «Хороните мёртвых и кормите живых». Сетка улиц, по которой вы идёте сегодня, единообразные фасады домов, ширина проспектов — всё это рационалистический, просветительский ответ Помбала на хаос.",
+        kids_label: "🚃 Детям",
+        kids: "Посмотрите на реку перед вами. Теперь — на мост вдали: оранжевый, подвесной, почти точная копия моста Золотые Ворота в Сан-Франциско. Это не случайность: его спроектировала та же американская компания в 1960-х. Назывался мост Мостом Салазара — до революции 1974 года, когда был переименован в мост 25 Апреля. Статуя Христа на другом берегу вдохновлена статуей Христа-Искупителя в Рио-де-Жанейро.",
+        connector: "~2 минуты · идём на север через арку"
+      },
+      {
+        name: "Арко да Руа Аугушта",
+        era: "Завершена в 1873 году · Триумфальная арка · Можно подняться",
+        desc: "Большая триумфальная арка, соединяющая Праса ду Комерсиу с Байшей, была задумана сразу после землетрясения 1755 года, но завершена лишь в 1873-м — 118 лет строительства. Смотровая площадка на крыше открывает панораму на площадь, Тежу и холмы кварталов выше — ближайшее к вертолётному виду на центр Лиссабона за совсем небольшую плату. Фигуры на вершине — Слава, венчающая Доблесть и Гений; в нишах — маркиз Помбал и Васко да Гама.",
+        story_label: "118 лет строительства одной арки",
+        story: "Арку спроектировал архитектор Эужениу душ Сантуш в 1755 году, сразу после землетрясения. Строительство начиналось, останавливалось, возобновлялось, обсуждалось, переделывалось и наконец было завершено другим архитектором в 1873-м. Часы на фасаде добавили ещё позже. Это типично для Лиссабона: город строится в своём темпе, вписывая столетия в одно сооружение. Арка строилась дольше, чем существуют Соединённые Штаты.",
+        kids_label: "🚃 Детям",
+        kids: "Заплатите небольшую сумму и поднимитесь на крышу арки. Вы стоите на воротах высотой 30 метров. С одной стороны — огромная жёлтая площадь и река. С другой — длинная прямая улица Руа Аугушта, уходящая в глубь города. Римляне придумали триумфальные арки в честь военных побед — эта посвящена восстановлению города после землетрясения. Что, пожалуй, впечатляет не меньше.",
+        connector: "~8 минут на северо-восток по улице Руа да Консейсан"
+      },
+      {
+        name: "Лифт Санта-Жуста",
+        era: "Построен в 1902 году · Неоготический чугунный лифт · Ученик Эйфеля",
+        desc: "Этот удивительный чугунный лифт поднимает на 45 метров из Байши в квартал Карму выше — построен в 1902 году Раулом Мезнье ду Понсаром, учеником Гюстава Эйфеля. Неоготическое убранство поражает для городской инфраструктуры: ажурные решётки, стрельчатые арки и смотровая площадка наверху с переходом к руинам монастыря Карму. Очереди бывают длинными; если так — пропустите лифт и поднимитесь по узкой лестнице рядом: вид на крыши Байши и холм замка будет тот же.",
+        story_label: "Город лифтов",
+        story: "Лиссабон такой холмистый, что здесь сложилась целая культура механических помощников: фуникулёры (элевадоры), трамваи и вот этот вертикальный лифт. Санта-Жуста — единственный уцелевший вертикальный лифт; фуникулёры Бика, Глория и Лавра до сих пор работают. Все они построены в конце XIX века, когда Лиссабон стремительно модернизировался: они превращали непроходимые уклоны в нормальные маршруты для горожан. Те же холмы, что веками защищали город, стали его главной практической проблемой, когда люди перестали ходить везде пешком.",
+        kids_label: "🚃 Детям",
+        kids: "Этот лифт работает с 1902 года по той же механической системе: противовес уравновешивает кабину, чтобы подъём требовал меньше энергии. С верхнего перехода видно, насколько плоская сетка Байши по сравнению с холмами по бокам. Лиссабон стоит на семи холмах — отсюда можно их сосчитать. А ещё наверху — остов монастыря Карму, разрушенного землетрясением 1755 года и так и не восстановленного: крыша не восстанавливалась намеренно — как память. Как собор под открытым небом.",
+        connector: "~12 минут пешком на юго-восток и вверх в Алфаму"
+      },
+      {
+        name: "Лиссабонский кафедральный собор (Се)",
+        era: "Основан в 1147 году · Романская крепость-церковь",
+        desc: "Се — старейшая церковь Лиссабона, одна из старейших в Португалии. Основана в 1147 году сразу после взятия города у мавров Афонсу Энрикешем — на месте главной мечети. Двухбашенный романский фасад больше похож на крепость, чем на церковь, что было совершенно намеренно: это манифест христианского завоевания, видимый с реки. Прямо перед собором проходит трамвай 28 — фотография жёлтого трамвая на фоне романских башен стала одним из главных образов Лиссабона. Интерьер строгий и древний; в готическом клуатре под средневековой кладкой видны раскопанные мавританские и римские руины.",
+        story_label: "Первый епископ и крестоносцы",
+        story: "Афонсу Энрикеш взял Лиссабон у мавров в 1147 году при военной помощи флота северноевропейских крестоносцев, проходивших мимо на пути в Святую землю. В награду он разрешил им разграбить город. Первый епископ Лиссабона — Жильбер де Гастингс — был англичанином. Вторым тоже был англичанин. Основание Португалии как королевства было отчасти совместной португальско-английской военной операцией — партнёрством, которое позже превратилось в старейший действующий союз в мире, формально до сих пор связывающий Португалию и Великобританию.",
+        kids_label: "🚃 Детям",
+        kids: "Посмотрите на фасад собора: башни, толстые стены — выглядит как замок. Это намеренно. Когда король Афонсу взял Лиссабон в 1147 году, он хотел построить нечто, говорящее всем, кто смотрит с реки: этот город теперь христианский. Трамвайная линия перед собором работает с 1901 года — лиссабонские жёлтые трамваи старше большинства бабушек и дедушек.",
+        connector: "~5 минут вверх по холму в Алфаму"
+      },
+      {
+        name: "Мирадоуру де Санта-Лузия",
+        era: "Смотровая площадка · Панно из азулежу · Увитая виноградом пергола",
+        desc: "Первая и самая романтичная из смотровых площадок Алфамы — терраса, украшенная двумя большими панно из плиток азулежу с видами доземлетрясительного Лиссабона и морской битвы при Сантарене, в обрамлении бугенвиллей под виноградной перголой. Внизу — крыши Алфамы и Тежу: терракотовая черепица, белые стены, телеантенны и блестящая река. Это ровно тот вид, который тиражировался на десяти тысячах открыток. Посидите пять минут. Именно так выглядит Лиссабон.",
+        story_label: "Азулежу — кожа Португалии",
+        story: "Сине-белые плитки азулежу, которыми покрыты церковные фасады, стены вокзалов, садовые скамейки и смотровые панно по всей Португалии — не просто декор: они функционируют как визуальная память страны. Слово восходит к арабскому 'аль-зулейдж' (полированный камень) — напоминание о том, что традиция пришла с маврами. Большие панно здесь изображают Лиссабон до 1755 года — город, которого больше нет. Плитки — один из немногих способов его увидеть. Лиссабонские азулежу сейчас массово похищают коллекционеры; часть панно в городе — копии, защищающие оригиналы, хранящиеся в безопасном месте.",
+        kids_label: "🚃 Детям",
+        kids: "Посмотрите на большие сине-белые панно на стенах. Левое показывает Лиссабон до землетрясения 1755 года — совершенно другой город. Найдите на панно большую площадь у реки: это та же Праса ду Комерсиу, с которой вы начали сегодня, — но на ней изображён королевский дворец, стоявший там до того, как землетрясение его уничтожило. Плитки — это фотография стёртого города.",
+        connector: "~3 минуты · продолжаем по террасе к следующей площадке"
+      },
+      {
+        name: "Мирадоуру даш Порташ ду Сол",
+        era: "Смотровая площадка · «Ворота Солнца» · Сердце Алфамы",
+        desc: "Тридцать секунд вперёд по гребню — Порташ ду Сол, более широкая и открытая площадка со статуей Сан-Висенте, покровителя Лиссабона, держащего лодку с двумя воронами (символ города). Вид уходит дальше на восток, захватывая больше Алфамы и излучину реки. Здесь удобно остановиться, посмотреть на квартал внизу и решить: спуститься в его переулки — они вознаграждают за прогулку — или держаться гребня в сторону Сан-Висенте де Фора. Кафе здесь расположено идеально для чашки кофе.",
+        story_label: "Святой и вороны",
+        story: "Сан-Висенте, мученик III века из Сарагосы, стал покровителем Лиссабона после того, как его мощи привезли сюда на корабле в 1173 году. По легенде, два ворона сопровождали корабль в пути и охраняли мощи — поэтому на гербе Лиссабона изображён корабль с двумя воронами. Мощи хранились в церкви Сан-Висенте де Фора, которую вы сейчас увидите, — пока таинственно не исчезли, возможно во время наполеоновского вторжения. Никто не знает, где они.",
+        kids_label: "🚃 Детям",
+        kids: "Статуя здесь изображает Сан-Висенте — покровителя Лиссабона — с маленькой лодкой, на которой сидят два ворона. Эти вороны — на гербе и флаге города. По легенде, когда в 1173 году в гавань Лиссабона прибыл корабль с мощами святого, два ворона летели рядом от самого юга Португалии, сидели на борту всё плавание и отказались покинуть корабль даже после швартовки. Город принял их как свой символ. Ищите воронов на вывесках, логотипах и плитках по всей Алфаме.",
+        connector: "~8 минут на северо-восток по гребню"
+      },
+      {
+        name: "Сан-Висенте де Фора",
+        era: "Завершена в 1629 году · Маньеризм · Королевский пантеон · Вид с крыши",
+        desc: "Одна из самых недооценённых церквей Лиссабона. Церковь Сан-Висенте де Фора — «Святой Висенте за стенами», название отсылает к её расположению за пределами средневекового города — строилась с 1582 по 1629 год в строгом итальянском маньеризме при испанских Габсбургах. Главное сокровище — клуатр: целая анфилада комнат, выложенных азулежу от пола до потолка с изображением Басен Лафонтена, завоевания Сеуты и жизни Сан-Висенте — десятки тысяч плиток, рассказывающих истории, которые можно читать час. С крыши открывается, пожалуй, лучший вид на Алфаму и Тежу во всём Лиссабоне.",
+        story_label: "Королевский пантеон по соседству",
+        story: "Бывшая трапезная Сан-Висенте де Фора служит пантеоном дома Браганса — королевской династии, правившей Португалией с 1640 по 1910 год. Здесь в мраморных саркофагах покоятся все португальские короли и королевы от Жуана IV до Мануэла II. Последний король Португалии Мануэл II был похоронен здесь в 1932 году, умерев в изгнании в Англии. На надгробии — «Король-патриот». Он прожил 42 года, трон потерял в 20.",
+        kids_label: "🚃 Детям",
+        kids: "Клуатр этой церкви покрыт тысячами сине-белых плиток с историями — в том числе всеми баснями Эзопа. Найдите плитку с лисой и виноградом (лиса не может дотянуться и говорит, что виноград всё равно кислый). Найдите лягушку, которая хотела раздуться до размеров быка и лопнула. Это 300-летние комиксы, на плитках, на стенах церкви. И обязательно поднимитесь на крышу — лучший вид на Алфаму отсюда.",
+        connector: "~15 минут пешком обратно вниз к реке к музею"
+      },
+      {
+        name: "Музей фаду",
+        era: "Рядом с рекой · Алфама · Душа Португалии",
+        desc: "Фаду — буквально «судьба» — национальная музыка Португалии: меланхоличный, душевный жанр, рождённый в рабочих тавернах Алфамы в начале XIX века и соединивший арабские, африканские и португальские традиции во что-то, не похожее ни на что другое. Музей фаду прослеживает всю его историю через инструменты, фотографии, записи и видео; бесплатный аудиогид позволяет слушать величайших фадиштов XX века — Амалию Родригеш, Карлуша ду Карму, Маризу — прямо во время прогулки по залам. Зайдите сюда до вечернего ужина с фаду. Опыт станет несравнимо богаче.",
+        story_label: "Саудаде",
+        story: "Главная эмоциональная тональность фаду — саудаде: португальское слово без точного русского эквивалента, обозначающее тоскующую тягу к отсутствующему: человеку, месту, времени, воображаемому будущему. Одновременно ностальгическое и устремлённое вперёд, умиротворённое и скорбное. Одни историки возводят его к эпохе Великих открытий — горю семей, провожающих корабли в многолетние плавания с неизвестным исходом. Другие говорят: это просто по-португальски. Так или иначе, живое фаду — один певец, португальская гитара и виола-байшу в тёмном зале — один из самых прямых эмоциональных музыкальных опытов, который вам доведётся пережить.",
+        kids_label: "🚃 Детям",
+        kids: "Возьмите аудиогид и послушайте Амалию Родригеш — величайшую фадиштку XX века, умершую в 1999 году. Когда она умерла, Португалия объявила трёхдневный национальный траур — как по президенту. Она была певицей из Алфамы, ставшей самым известным португальцем своего века. Сегодня вечером вы услышите живое фаду. Этот музей объяснит, что именно вы будете слушать и почему это звучит именно так.",
+        connector: "~20 минут пешком вверх на запад к замку, или на тук-туке"
+      },
+      {
+        name: "Замок Сан-Жоржи",
+        era: "Мавританский основан · Христианское завоевание 1147 г. · Павлины",
+        desc: "Замок Сан-Жоржи стоит на высочайшем холме Лиссабона, господствуя над городом со всех сторон. Это место укреплено как минимум со II века до н.э. — финикийцы, римляне, вестготы и мавры держали этот холм до португальцев. Нынешний замок построен маврами и существенно расширен португальцами после завоевания 1147 года. Внутри: 11 башен, проходимые стены, круговые панорамы на 360° над городом и Тежу, небольшой превосходный музей с находками всех культурных слоёв и популяция вольных павлинов, взирающих на туристов с великолепным безразличием. Завершите день здесь — на закате.",
+        story_label: "Осада 1147 года",
+        story: "Когда Афонсу Энрикеш осаждал Лиссабон в 1147 году, мавританский гарнизон удерживал замок четыре месяца. Северноевропейские крестоносцы, помогшие пробить стены, потребовали права на разграбление города. Португальцы согласились — и попытались остановить мародёрство после его начала. Безуспешно. Первый епископ Жильбер де Гастингс, по имеющимся данным, погиб в уличной драке со своими же союзниками-крестоносцами из-за добычи. Взятие Лиссабона было хаотичным, кровавым делом, прикрытым крестоносной риторикой. Но замок сменил хозяина — а это было главным.",
+        kids_label: "🚃 Детям",
+        kids: "Пройдите по всему периметру крепостных стен. Вы стоите на тех же стенах, которые мавританские воины обороняли в 1147 году во время четырёхмесячной осады. Сосчитайте башни — их 11. Найдите павлинов: они живут в замке постоянно уже десятилетия; весной самцы распускают хвосты. Подвал музея показывает слои холма: финикийские, римские, вестготские, мавританские и португальские артефакты — все с того самого места, где вы стоите. Каждая цивилизация в истории Лиссабона держала этот холм.",
+        connector: null
+      }
+    ],
+    evening_label: "🎵 Этим вечером — Фаду в Алфаме",
+    evening_text: "Забронируйте столик на ужин с фаду заранее — рестораны на улицах Руа ди Эшколаш Жераиш и Руа де Сан-Жуан да Прайа это настоящее, а не туристическое шоу. Настоящий дом фаду подаёт простую португальскую еду (бакальяу, калду верди), пока исполнители сменяют друг друга на маленькой сцене. Музыка начинается поздно — редко раньше 21:00. Принято замолкать, когда кто-то поёт. Если певец хорош, в зале наступает абсолютная тишина. Эта тишина и есть смысл."
+  }
+};
+
+let currentLang = 'en';
+
+function setLang(lang) {
+  currentLang = lang;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.textContent === lang.toUpperCase()));
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = T[lang][el.dataset.i18n] || ''; });
+  renderStops(lang);
+}
+
+function renderStops(lang) {
+  const d = T[lang];
+  const container = document.getElementById('stops-container');
+  let html = '';
+  d.stops.forEach((s, i) => {
+    html += `
+    <article class="stop">
+      <div class="stop-num">${i+1}</div>
+      <div class="stop-content">
+        <span class="stop-name">${s.name}</span>
+        <span class="stop-era">${s.era}</span>
+        <p class="stop-desc">${s.desc}</p>
+        ${s.story ? `<div class="story-box"><span class="story-label">${s.story_label}</span><p>${s.story}</p></div>` : ''}
+        ${s.kids ? `<div class="kids-box"><span class="kids-label">${s.kids_label}</span><p>${s.kids}</p></div>` : ''}
+      </div>
+    </article>
+    ${s.connector ? `<div class="connector">${s.connector}</div>` : ''}`;
+  });
+  html += `<div style="padding:24px 0 8px 76px;">
+    <div class="evening-box">
+      <strong>${d.evening_label}</strong>
+      <p>${d.evening_text}</p>
+    </div>
+  </div>`;
+  container.innerHTML = html;
+}
+
+document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = T.en[el.dataset.i18n] || ''; });
+renderStops('en');
+
+const map = L.map('map', { zoomControl: true, scrollWheelZoom: false });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 19 }).addTo(map);
+const stops = [
+  { num:1, name:"Praça do Comércio",       lat:38.7072828, lng:-9.1363613 },
+  { num:2, name:"Arco da Rua Augusta",     lat:38.7084447, lng:-9.1368243 },
+  { num:3, name:"Elevador de Santa Justa", lat:38.7121301, lng:-9.1394297 },
+  { num:4, name:"Sé de Lisboa",            lat:38.7098339, lng:-9.1329535 },
+  { num:5, name:"Miradouro de Santa Luzia",lat:38.7116956, lng:-9.1301972 },
+  { num:6, name:"Portas do Sol",           lat:38.7119253, lng:-9.1299568 },
+  { num:7, name:"São Vicente de Fora",     lat:38.7148876, lng:-9.1276501 },
+  { num:8, name:"Museu do Fado",           lat:38.7111258, lng:-9.1276160 },
+  { num:9, name:"Castelo de São Jorge",    lat:38.7139092, lng:-9.1334762 }
+];
+L.polyline(stops.map(s=>[s.lat,s.lng]),{color:'#1a6a78',weight:3,opacity:0.75,dashArray:'6 4'}).addTo(map);
+stops.forEach(s=>{
+  const icon=L.divIcon({className:'',html:`<div style="width:30px;height:30px;border-radius:50%;background:#1a6a78;color:#fff;font-family:'Cinzel',serif;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,60,80,0.45);border:2px solid #edf4f5;">${s.num}</div>`,iconSize:[30,30],iconAnchor:[15,15]});
+  L.marker([s.lat,s.lng],{icon}).addTo(map).bindPopup(`<strong style="font-family:serif">${s.num}. ${s.name}</strong>`);
+});
+map.fitBounds(L.latLngBounds(stops.map(s=>[s.lat,s.lng])),{padding:[40,40]});
+</script>
+</body>
+</html>
